@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>基岩版藍圖材質包生成器</title>
+<style>
+:root{--bg:#0c2340;--pn:#11305a;--ln:#3a78c2;--ac:#ffd23f;--cy:#7fd8ff;--tx:#eaf3ff;--mu:#93b4da;--bad:#ff7a9a;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;min-height:100vh;font:15px/1.65 "Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;color:var(--tx);background:linear-gradient(#3a78c240 1px,transparent 1px) 0 0/20px 20px,linear-gradient(90deg,#3a78c240 1px,transparent 1px) 0 0/20px 20px,var(--bg)}
+.w{max-width:720px;margin:auto}
+h1{margin:6px 0 2px;font:800 26px/1.25 "Noto Serif TC","Songti TC",serif;letter-spacing:.06em;color:var(--ac)}
+.sub{margin:0 0 14px;color:var(--mu);font-size:13px}
+.c{background:var(--pn);border:1.5px solid var(--ln);border-radius:4px;padding:14px;margin:14px 0;box-shadow:4px 4px 0 #06142a}
+.drop{display:block;border:2px dashed var(--cy);border-radius:4px;padding:26px 12px;text-align:center;cursor:pointer;color:var(--cy)}
+.drop:focus-within,button:focus-visible{outline:3px solid var(--ac)}
+.drop input{position:absolute;opacity:0;width:1px;height:1px}
+.f{display:block;margin:10px 0 4px;color:var(--mu);font-size:13px}
+input[type=text]{width:100%;padding:10px;border-radius:4px;border:1.5px solid var(--ln);background:#081a33;color:var(--tx);font:inherit}
+input[type=range]{width:100%;accent-color:var(--ac)}
+button{width:100%;margin-top:12px;padding:13px;border:0;border-radius:4px;background:var(--ac);color:#241a00;font:800 16px "Noto Sans TC",system-ui,sans-serif;cursor:pointer}
+button:disabled{opacity:.45;cursor:wait}
+.st{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px}
+.st div{background:#081a33;border-left:3px solid var(--ln);padding:6px 9px;font-size:12.5px;color:var(--mu)}
+.st b{display:block;color:var(--tx);font-size:17px}
+.bad b{color:var(--bad)}
+pre{margin:8px 0 0;max-height:230px;overflow:auto;font-size:12.5px;white-space:pre-wrap;color:var(--cy)}
+canvas{display:block;max-width:100%;background:#081a33;image-rendering:pixelated}
+summary{cursor:pointer;color:var(--cy);margin-top:12px}
+ol{margin:6px 0 0;padding-left:20px;color:var(--mu);font-size:13.5px}
+li{margin:3px 0}
+code{color:var(--ac)}
+.row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}.row>*{flex:1 1 120px}.row button{margin-top:0;padding:10px}
+select,textarea{width:100%;padding:9px;border-radius:4px;border:1.5px solid var(--ln);background:#081a33;color:var(--tx);font:inherit}
+textarea{min-height:96px;font-size:12.5px}
+#tip{min-height:1.5em;margin:6px 0 0;color:var(--cy)}
+.ml{margin:8px 0 0;max-height:280px;overflow:auto;font-size:13px}
+.mr{display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid #3a78c233}
+.mr .nm{flex:1;min-width:0;overflow-wrap:anywhere}.mr b{color:var(--cy);font-weight:600;white-space:nowrap}
+.ic{flex:none;width:28px;height:28px;background:#081a33;border:1px solid var(--ln)}
+.ic img{display:block;width:100%;height:100%;image-rendering:pixelated}
+.ic.t{background:#7ab55e}.ic.t img{mix-blend-mode:multiply}
+.ic.x{background:conic-gradient(#f800f8 25%,#000 0 50%,#f800f8 0 75%,#000 0)}
+.ipr{display:flex;gap:12px;align-items:center;margin-top:10px}
+#ip{flex:none;width:76px;height:76px;border:1.5px solid var(--ln);image-rendering:auto}
+.ipb{flex:1;min-width:0;display:grid;gap:8px}
+.ipb button,.fb{margin:0;padding:10px;font-size:14px}
+.fb{position:relative;display:block;text-align:center;border-radius:4px;background:var(--cy);color:#06203a;font:800 14px "Noto Sans TC",system-ui,sans-serif;cursor:pointer}
+.fb input{position:absolute;opacity:0;width:1px;height:1px}
+.fb:focus-within{outline:3px solid var(--ac)}
+button.gh{background:transparent;color:var(--cy);border:1.5px solid var(--ln)}
+button.gh:disabled{cursor:default}
+.hint{margin:6px 0 0;color:var(--mu);font-size:12px}
+</style>
+</head>
+<body>
+<div class="w">
+<h1>基岩版藍圖材質包生成器</h1>
+<p class="sub">匯入 .litematic、.schem、.nbt（Java）或 .mcstructure（基岩版），轉成放置盔甲座就顯示藍圖的資源包</p>
+
+<label class="drop" id="dz"><input id="fi" type="file" accept=".litematic,.mcstructure,.schem,.nbt"><b>點選或拖曳藍圖檔到這裡</b><br><small>支援 .litematic / .schem / .nbt / .mcstructure</small></label>
+
+<div class="c" id="info" hidden>
+ <div class="st" id="st"></div>
+ <div class="row"><label class="f">旋轉（順時針）<select id="rt"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label><label class="f"><input type="checkbox" id="mi"> 東西鏡像</label></div>
+ <label class="f">圖層預覽：第 <span id="ly">1</span> 層（命名牌填 <code>L<span id="ln">1</span></code>）</label>
+ <input type="range" id="rg" min="0" max="0" value="0" aria-label="圖層">
+ <div class="row" style="margin:8px 0"><button id="lo">▼ 下層</button><button id="hi">▲ 上層</button></div><canvas id="cv"></canvas><p class="sub" id="tip"></p><details><summary>本層材料</summary><div class="ml" id="lm"></div></details>
+ <details><summary>所需材料清單</summary><div class="ml" id="mt"></div><button id="cp">複製清單</button></details><details><summary>自訂紋理對照（修正洋紅黑格）</summary><p class="sub">每行一筆「方塊名=貼圖路徑」，填 1 個路徑＝全部面，填 3 個（頂,底,側）可分面；路徑可省略 <code>textures/blocks/</code>。重新按「產生材質包」後生效。</p><textarea id="ov" spellcheck="false" placeholder="blackstone=blackstone_top,blackstone_top,blackstone"></textarea></details>
+ <label class="f" for="nm">材質包名稱</label>
+ <input type="text" id="nm" value="Blueprint">
+ <details open><summary>封包資訊：圖示、作者、版本、說明</summary>
+  <div class="ipr"><canvas id="ip" width="256" height="256" aria-label="圖示預覽"></canvas>
+   <div class="ipb"><label class="fb">選擇圖示圖片<input type="file" id="ii" accept="image/*"></label><button class="gh" id="ir" disabled>還原預設圖示</button></div></div>
+  <p class="hint">圖片會自動置中裁成正方形，輸出為 256×256 的 pack_icon.png。</p>
+  <div class="row"><div><label class="f" for="au">作者</label><input type="text" id="au" placeholder="多位用「、」分隔" autocomplete="off"></div>
+   <div><label class="f" for="vr">版本</label><input type="text" id="vr" value="1.0.0" placeholder="1.0.0" autocomplete="off"></div></div>
+  <label class="f" for="ds">說明</label>
+  <textarea id="ds" style="min-height:64px" placeholder="留空＝藍圖材質包 寬×高×深" spellcheck="false"></textarea>
+ </details>
+ <button id="go">產生材質包 (.mcpack)</button>
+ <div class="sub" id="msg" role="status" style="margin-top:8px"></div>
+ <div id="dl" hidden>
+  <button id="sv">儲存／分享 .mcpack</button>
+  <button id="sz" style="background:var(--cy)">另存為 .zip（存檔後改副檔名為 .mcpack）</button>
+  <p class="sub">沒有跳出儲存視窗時，請用 Safari／Chrome 開啟這個 HTML 檔再操作。</p>
+ </div>
+</div>
+
+<div class="c"><b>使用方式</b>
+<ol>
+<li>匯入藍圖後按「產生材質包」，開啟下載的 .mcpack 匯入遊戲，並在世界中啟用（排在最上層）。</li>
+<li>放置盔甲座，藍圖就會出現。藍圖的 (0,0,0) 角落＝盔甲座所在方塊，盔甲座朝南時方向與原圖相同。</li>
+<li>點遊戲畫面左上角的 <code>[藍圖]</code> 開啟所需材料清單。</li>
+<li>分層顯示：用命名牌把盔甲座命名為 <code>L1</code>、<code>L2</code>… 只顯示該層；不命名＝顯示全部。</li>
+<li>基岩版沒有的方塊會顯示錯誤紋理（洋紅黑格）。紋理直接引用遊戲內建資源，不內含任何官方素材。</li>
+<li>匯入後可旋轉／鏡像藍圖；點預覽圖可查方塊名稱；洋紅黑格可在「自訂紋理對照」填入基岩版貼圖路徑修正。</li>
+</ol></div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s),enc=new TextEncoder();let BP=null,CELLS=null,SC=1,OV={};
+
+/* ---------- NBT（大端=Java，小端=基岩） ---------- */
+function nbt(u8,le){const d=new DataView(u8.buffer,u8.byteOffset,u8.byteLength),td=new TextDecoder();let p=0;
+ const s16=()=>{const v=d.getInt16(p,le);p+=2;return v},s32=()=>{const v=d.getInt32(p,le);p+=4;return v};
+ const str=()=>{const n=d.getUint16(p,le);p+=2;const s=td.decode(u8.subarray(p,p+n));p+=n;return s};
+ const val=t=>{switch(t){
+  case 1:return d.getInt8(p++);case 2:return s16();case 3:return s32();
+  case 4:case 6:p+=8;return 0;case 5:p+=4;return 0;
+  case 7:{const n=s32(),a=u8.subarray(p,p+n);p+=n;return a}
+  case 8:return str();
+  case 9:{const t2=d.getInt8(p++),n=s32(),a=[];for(let i=0;i<n;i++)a.push(val(t2));return a}
+  case 10:{const o={};for(;;){const t2=d.getInt8(p++);if(!t2)return o;const k=str();o[k]=val(t2)}}
+  case 11:{const n=s32(),a=[];for(let i=0;i<n;i++)a.push(s32());return a}
+  case 12:{const n=s32(),w=new Uint32Array(n*2);for(let i=0;i<n;i++){const a=d.getUint32(p,le),b=d.getUint32(p+4,le);p+=8;w[2*i]=le?a:b;w[2*i+1]=le?b:a}return w}}};
+ const t=d.getInt8(p++);str();return val(t)}
+const bits=(W,i,b)=>{const s=i*b,w=s>>>5,o=s&31;let v=W[w]>>>o;if(o+b>32)v|=W[w+1]<<(32-o);return v&((1<<b)-1)};
+
+/* ---------- 方塊名稱 → 基岩版貼圖 ---------- */
+const SKIP=/^(air|cave_air|void_air|water|lava|flowing_water|flowing_lava|bubble_column|light|structure_void)$/;
+const COL=new Set('white orange magenta light_blue yellow lime pink gray light_gray cyan purple blue brown green red black'.split(' '));
+const WD={oak:'oak',spruce:'spruce',birch:'birch',jungle:'jungle',acacia:'acacia',dark_oak:'big_oak'};
+const FACE={grass_block:['grass_top','dirt','grass_side'],podzol:['dirt_podzol_top','dirt','dirt_podzol_side'],mycelium:['mycelium_top','dirt','mycelium_side'],sandstone:['sandstone_top','sandstone_bottom','sandstone_normal'],red_sandstone:['red_sandstone_top','red_sandstone_bottom','red_sandstone_normal'],quartz_block:['quartz_block_top','quartz_block_bottom','quartz_block_side'],bookshelf:['planks_oak','planks_oak','bookshelf'],crafting_table:['crafting_table_top','planks_oak','crafting_table_side'],furnace:['furnace_top','furnace_top','furnace_side'],tnt:['tnt_top','tnt_bottom','tnt_side'],hay_block:['hay_block_top','hay_block_top','hay_block_side'],pumpkin:['pumpkin_top','pumpkin_top','pumpkin_side'],melon:['melon_top','melon_top','melon_side'],deepslate:['deepslate/deepslate_top','deepslate/deepslate_top','deepslate/deepslate'],blackstone:['blackstone_top','blackstone_top','blackstone'],basalt:['basalt_top','basalt_top','basalt_side'],polished_basalt:['polished_basalt_top','polished_basalt_top','polished_basalt_side'],bone_block:['bone_block_top','bone_block_top','bone_block_side'],ancient_debris:['ancient_debris_top','ancient_debris_top','ancient_debris_side'],purpur_pillar:['purpur_pillar_top','purpur_pillar_top','purpur_pillar']};
+const FIX={granite:'stone_granite',diorite:'stone_diorite',andesite:'stone_andesite',polished_granite:'stone_granite_smooth',polished_diorite:'stone_diorite_smooth',polished_andesite:'stone_andesite_smooth',mossy_cobblestone:'cobblestone_mossy',stone_bricks:'stonebrick',mossy_stone_bricks:'stonebrick_mossy',cracked_stone_bricks:'stonebrick_cracked',chiseled_stone_bricks:'stonebrick_carved',smooth_stone:'stone_slab_top',bricks:'brick',nether_bricks:'nether_brick',red_nether_bricks:'red_nether_brick',snow_block:'snow',packed_ice:'ice_packed',terracotta:'hardened_clay',smooth_sandstone:'sandstone_top',cut_sandstone:'sandstone_top',smooth_red_sandstone:'red_sandstone_top',end_stone_bricks:'end_bricks',purpur:'purpur_block',glass_pane:'glass',prismarine:'prismarine_rough',prismarine_bricks:'prismarine_bricks',dark_prismarine:'prismarine_dark',cobbled_deepslate:'deepslate/cobbled_deepslate',polished_deepslate:'deepslate/polished_deepslate',deepslate_bricks:'deepslate/deepslate_bricks',deepslate_tiles:'deepslate/deepslate_tiles',chiseled_deepslate:'deepslate/chiseled_deepslate',cracked_deepslate_bricks:'deepslate/cracked_deepslate_bricks',cracked_deepslate_tiles:'deepslate/cracked_deepslate_tiles'};
+const CP={wool:'wool_colored_',carpet:'wool_colored_',concrete:'concrete_',concrete_powder:'concrete_powder_',terracotta:'hardened_clay_stained_',stained_glass:'glass_',stained_glass_pane:'glass_',glazed_terracotta:'glazed_terracotta_'};
+function T(n,f){ // f:0頂 1底 2側 → [路徑,色調]；null=基岩版沒有
+ const o=OV[n]||OV[n.replace(/^waxed_/,'').replace(/_(stairs|slab|wall|fence_gate|fence|button|pressure_plate|trapdoor|door|wall_sign|sign)$/,'')];if(o)return[o[f]||o[0],0];
+ if(n.includes(':'))return null;
+ let b=n.replace(/^waxed_/,'').replace(/_(stairs|slab|wall|fence_gate|fence|button|pressure_plate|trapdoor|door|wall_sign|sign)$/,''),m;
+ const P=s=>['textures/blocks/'+s,0];
+ if(b==='quartz')b='quartz_block';
+ if(FACE[b]){const s=FACE[b][f];return['textures/blocks/'+s,s==='grass_top'?'g':0]}
+ if(WD[b])return P('planks_'+WD[b]);
+ if(m=b.match(/^(stripped_)?(\w+)_(log|wood)$/)){const t=m[3]==='log'&&f<2?'_top':'';return P(m[1]?`stripped_${m[2]}_log${t}`:WD[m[2]]?`log_${WD[m[2]]}${t}`:`${m[2]}_log${t}`)}
+ if(m=b.match(/^(\w+)_planks$/))return P(WD[m[1]]?'planks_'+WD[m[1]]:b);
+ if(m=b.match(/^(\w+)_leaves$/))return['textures/blocks/'+(WD[m[1]]?'leaves_'+WD[m[1]]:b),'l'];
+ if((m=b.match(/^(\w+?)_(wool|carpet|concrete_powder|concrete|terracotta|stained_glass_pane|stained_glass|glazed_terracotta)$/))&&COL.has(m[1]))return P(CP[m[2]]+(m[1]==='light_gray'?'silver':m[1]));
+ return P(FIX[b]||FIX[b+'s']||b)}
+/* 基岩版舊式方塊名稱 → Java 式名稱 */
+function norm(n,s){n=n.replace(/^minecraft:/,'');const c=s.color==='silver'?'light_gray':s.color;
+ switch(n){case'planks':return(s.wood_type||'oak')+'_planks';case'log':return(s.old_log_type||s.wood_type||'oak')+'_log';case'log2':return(s.new_log_type||'acacia')+'_log';
+ case'leaves':return(s.old_leaf_type||'oak')+'_leaves';case'leaves2':return(s.new_leaf_type||'acacia')+'_leaves';
+ case'wool':case'concrete':case'stained_glass':case'stained_glass_pane':case'carpet':return c+'_'+n;case'concretePowder':return c+'_concrete_powder';
+ case'stained_hardened_clay':return c+'_terracotta';case'hardened_clay':return'terracotta';case'grass':return'grass_block';case'brick_block':return'bricks';
+ case'stonebrick':return{mossy:'mossy_stone_bricks',cracked:'cracked_stone_bricks',chiseled:'chiseled_stone_bricks'}[s.stone_brick_type]||'stone_bricks';
+ case'stone':{const t=s.stone_type;return t&&t!=='stone'?(t.endsWith('_smooth')?'polished_'+t.slice(0,-7):t):'stone'}}
+ return n}
+
+/* ---------- 形狀 ---------- */
+const FULL=[0,0,0,16,16,16];
+const NOP=/glass|leaves|ice$|slime|honey|door|ladder|sign|vine|sapling|rail|lever|button|stairs|bars|chain|flower|fern|grass$|tulip|rose|lantern|candle|banner|head|skull|bed$|cake|pot$|plate|fence|wall|pane|slab|torch/;
+function shape(n,sk){
+ if(/_slab$/.test(n))return sk==='double'?FULL:[0,sk==='top'?8:0,0,16,8,16];
+ if(/(carpet|pressure_plate)$/.test(n))return[0,0,0,16,1,16];
+ if(/_fence$/.test(n))return[6,0,6,4,16,4];
+ if(/_wall$/.test(n))return[4,0,4,8,16,8];
+ if(/(_pane|iron_bars|chain|_rod)$/.test(n))return[7,0,7,2,16,2];
+ if(/torch$/.test(n))return[7,0,7,2,10,2];
+ return FULL}
+function mk(n,sk){const sh=shape(n,sk),t=[0,1,2].map(f=>T(n,f)),bad=!t[0];
+ return{n,sh,bad,op:sh===FULL&&!NOP.test(n)&&!bad,t:bad?[0,1,2].map(()=>['textures/blueprint/missing',0]):t}}
+
+/* ---------- 讀檔 ---------- */
+function prep(cells){let m=[1e9,1e9,1e9],M=[-1e9,-1e9,-1e9];
+ for(const c of cells)for(let i=0;i<3;i++){if(c[i]<m[i])m[i]=c[i];if(c[i]>M[i])M[i]=c[i]}
+ const[sx,sy,sz]=[0,1,2].map(i=>M[i]-m[i]+1),grid=new Int32Array(sx*sy*sz).fill(-1),recs=[],rm=new Map(),mats=new Map();let tot=0,bad=0;
+ for(const[x,y,z,n,p]of cells){
+  const sk=/_slab$/.test(n)?(p.type||(p.top_slot_bit==1||p['minecraft:vertical_half']==='top'?'top':'bottom')):'',k=n+'|'+sk;
+  let ri=rm.get(k);if(ri===undefined){ri=recs.length;rm.set(k,ri);recs.push(mk(n,sk))}
+  grid[((x-m[0])*sy+y-m[1])*sz+z-m[2]]=ri;tot++;if(recs[ri].bad)bad++;
+  if(!(p.half==='upper'||p.part==='head'||p.upper_block_bit==1))mats.set(n,(mats.get(n)||0)+(sk==='double'?2:1))}
+ return{sx,sy,sz,grid,recs,mats,tot,bad}}
+const TX='https://raw.githubusercontent.com/Mojang/bedrock-samples/main/resource_pack/';
+function rows(m){return m.map(([n,c])=>{const t=T(n,2);return`<div class="mr"><span class="ic ${t?t[1]?'t':'':'x'}">${t?`<img src="${TX+t[0]}.png" loading="lazy" alt="" onerror="this.parentNode.classList.add('x');this.remove()">`:''}</span><span class="nm">${n}</span><b>x${c}  (${Math.floor(c/64)}組+${c%64})</b></div>`}).join('')||'（沒有方塊）'}
+const mtl=()=>{$('#mt').innerHTML=rows([...BP.mats].sort((a,b)=>b[1]-a[1]))};
+function xf(c){const k=+$('#rt').value,m=$('#mi').checked;return c.map(([x,y,z,n,p])=>{if(m)x=-x;for(let i=0;i<k;i++)[x,z]=[-z,x];return[x,y,z,n,p]})}
+function ovl(){OV={};for(const l of $('#ov').value.split('\n')){const i=l.indexOf('=');if(i<1)continue;const p=l.slice(i+1).split(',').map(s=>s.trim()).filter(Boolean).map(s=>s.startsWith('textures/')?s:'textures/blocks/'+s);if(p.length)OV[l.slice(0,i).trim().replace(/^minecraft:/,'')]=p.length>=3?p.slice(0,3):[p[0],p[0],p[0]]}}
+async function load(f){
+ try{let u=new Uint8Array(await f.arrayBuffer());
+  if(u[0]===31&&u[1]===139)u=new Uint8Array(await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+  const le=/\.mcstructure$/i.test(f.name),r=nbt(u,le),S=r.Schematic||r,cells=[];
+  if(le){const[sx,sy,sz]=r.size,ix=r.structure.block_indices[0],pl=r.structure.palette.default.block_palette;
+   for(let x=0;x<sx;x++)for(let y=0;y<sy;y++)for(let z=0;z<sz;z++){const k=ix[(x*sy+y)*sz+z];if(k<0)continue;const b=pl[k],s=b.states||{},n=norm(b.name,s);if(!SKIP.test(n))cells.push([x,y,z,n,s])}}
+  else if(r.palette&&r.blocks){const pl=r.palette.map(e=>[e.Name.replace(/^minecraft:/,''),e.Properties||{}]);
+   for(const b of r.blocks){const[n,p]=pl[b.state];if(!SKIP.test(n))cells.push([b.pos[0],b.pos[1],b.pos[2],n,p])}}
+  else if(S.Palette||(S.Blocks&&S.Blocks.Palette)){const B=S.Blocks||S,pe=B.Palette,da=B.Data||B.BlockData,W=S.Width,H=S.Height,L=S.Length,pl=[];
+   for(const k in pe){const m=k.match(/^(?:minecraft:)?([^\[]+)(?:\[(.*)\])?$/),p={};if(m[2])for(const kv of m[2].split(',')){const[a,b]=kv.split('=');p[a]=b}pl[pe[k]]=[m[1],p]}
+   for(let i=0,k=0,v=0,s=0;i<da.length&&k<W*H*L;){const c=da[i++];v|=(c&127)<<s;if(c&128){s+=7;continue}const[n,p]=pl[v];if(!SKIP.test(n))cells.push([k%W,(k/(W*L))|0,((k/W)|0)%L,n,p]);k++;v=0;s=0}}
+  else{for(const g of Object.values(r.Regions||{})){const P=g.Position,S=g.Size,ax=Math.abs(S.x),ay=Math.abs(S.y),az=Math.abs(S.z),
+    ox=P.x+(S.x<0?S.x+1:0),oy=P.y+(S.y<0?S.y+1:0),oz=P.z+(S.z<0?S.z+1:0),pal=g.BlockStatePalette,b=Math.max(2,Math.ceil(Math.log2(pal.length))),W=g.BlockStates;
+    for(let y=0;y<ay;y++)for(let z=0;z<az;z++)for(let x=0;x<ax;x++){const e=pal[bits(W,(y*az+z)*ax+x,b)],n=e.Name.replace(/^minecraft:/,'');if(!SKIP.test(n))cells.push([ox+x,oy+y,oz+z,n,e.Properties||{}])}}}
+  if(!cells.length)throw Error('檔案內沒有方塊');
+  CELLS=cells;$('#rt').value=0;$('#mi').checked=false;BP=prep(xf(cells));$('#nm').value=f.name.replace(/\.[^.]+$/,'');show()}
+ catch(e){alert('讀取失敗：'+e.message)}}
+function show(){ovl();const B=BP;$('#info').hidden=false;
+ const S=[['尺寸',`${B.sx}×${B.sy}×${B.sz}`],['方塊總數',B.tot],['方塊種類',B.recs.length],['圖層數',B.sy]];
+ $('#st').innerHTML=S.map(([a,b])=>`<div>${a}<b>${b}</b></div>`).join('')+`<div class="${B.bad?'bad':''}">錯誤紋理方塊<b>${B.bad}</b></div>`;
+ mtl();
+ const r=$('#rg');r.max=B.sy-1;r.value=0;draw()}
+function draw(){const{sx,sy,sz,grid,recs}=BP,y=+$('#rg').value,s=Math.max(2,Math.min(12,Math.floor(320/Math.max(sx,sz)))),c=$('#cv'),g=c.getContext('2d');
+ c.width=sx*s;c.height=sz*s;SC=s;const lm=new Map();
+ for(let x=0;x<sx;x++)for(let z=0;z<sz;z++){const ri=grid[(x*sy+y)*sz+z];if(ri<0)continue;let h=0;for(const ch of recs[ri].n)h=(h*31+ch.charCodeAt(0))%360;g.fillStyle=recs[ri].bad?'#f0f':`hsl(${h} 55% 55%)`;g.fillRect(x*s,z*s,s,s);lm.set(recs[ri].n,(lm.get(recs[ri].n)||0)+1)}
+ $('#ly').textContent=$('#ln').textContent=y+1;$('#lm').innerHTML=rows([...lm].sort((a,b)=>b[1]-a[1]));$('#tip').textContent='點預覽圖可查看方塊名稱與座標'}
+
+/* ---------- 幾何（每種貼圖一組，每層一根骨骼） ---------- */
+function geo(){const{sx,sy,sz,grid,recs}=BP,G=new Map(),at=(x,y,z)=>x<0||y<0||z<0||x>=sx||y>=sy||z>=sz?-1:grid[(x*sy+y)*sz+z];
+ // 模型座標：x 同世界，z 反向，故世界 +z(南) 面 = 模型 north
+ const F=[['up',0],['down',1],['east',2,1,0],['west',2,-1,0],['north',2,0,1],['south',2,0,-1]];
+ for(let x=0;x<sx;x++)for(let y=0;y<sy;y++)for(let z=0;z<sz;z++){const ri=grid[(x*sy+y)*sz+z];if(ri<0)continue;
+  const r=recs[ri],[a,b,c,w,h,d]=r.sh,full=r.sh===FULL,per=new Map();
+  for(const[nm,f,dx,dz]of F){
+   if(f===2&&full){const q=at(x+dx,y,z+dz);if(q>=0&&recs[q].op)continue}
+   const[p,t]=r.t[f],k=p+'|'+t;let g=G.get(k);if(!g)G.set(k,g={p,t,L:new Map()});
+   let e=per.get(k);if(!e)per.set(k,e=[g,[]]);
+   e[1].push(`"${nm}":{"uv":[0,0],"uv_size":[${nm==='up'||nm==='down'?w+','+d:nm==='east'||nm==='west'?d+','+h:w+','+h}]}`)}
+  for(const[g,u]of per.values()){if(!g.L.has(y))g.L.set(y,[]);
+   g.L.get(y).push(`{"origin":[${16*x+a-8},${16*y+b},${-16*z-c-d+8}],"size":[${w},${h},${d}],"inflate":-0.2,"uv":{${u.join(',')}}}`)}}
+ return[...G.values()]}
+
+/* ---------- ZIP（deflate 由瀏覽器提供） ---------- */
+const CT=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc=u=>{let c=-1;for(let i=0;i<u.length;i++)c=CT[(c^u[i])&255]^(c>>>8);return(~c)>>>0};
+async function defl(u){try{const w=new CompressionStream('deflate-raw'),wr=w.writable.getWriter();wr.write(u);wr.close();return new Uint8Array(await new Response(w.readable).arrayBuffer())}catch(e){return null}}
+async function zip(files){const parts=[],cen=[];let off=0;
+ for(const f of files){const c=await defl(f.d),m=c?8:0,data=c||f.d,cr=crc(f.d),nm=enc.encode(f.n);
+  const h=new DataView(new ArrayBuffer(30));h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x800,true);h.setUint16(8,m,true);h.setUint16(12,0x21,true);h.setUint32(14,cr,true);h.setUint32(18,data.length,true);h.setUint32(22,f.d.length,true);h.setUint16(26,nm.length,true);
+  parts.push(new Uint8Array(h.buffer),nm,data);
+  const e=new DataView(new ArrayBuffer(46));e.setUint32(0,0x02014b50,true);e.setUint16(4,20,true);e.setUint16(6,20,true);e.setUint16(8,0x800,true);e.setUint16(10,m,true);e.setUint16(14,0x21,true);e.setUint32(16,cr,true);e.setUint32(20,data.length,true);e.setUint32(24,f.d.length,true);e.setUint16(28,nm.length,true);e.setUint32(42,off,true);
+  cen.push(new Uint8Array(e.buffer),nm);off+=30+nm.length+data.length}
+ const cl=cen.reduce((a,b)=>a+b.length,0),z=new DataView(new ArrayBuffer(22));z.setUint32(0,0x06054b50,true);z.setUint16(8,files.length,true);z.setUint16(10,files.length,true);z.setUint32(12,cl,true);z.setUint32(16,off,true);
+ return new Blob([...parts,...cen,new Uint8Array(z.buffer)],{type:'application/zip'})}
+const png=(w,h,fn)=>new Promise(r=>{const c=document.createElement('canvas');c.width=w;c.height=h;fn(c.getContext('2d'));c.toBlob(async b=>r(new Uint8Array(await b.arrayBuffer())))});
+
+/* ---------- 封包資訊（圖示／版本） ---------- */
+let ICON=null;
+function drawIcon(g){const S=256;g.clearRect(0,0,S,S);
+ if(ICON){g.drawImage(ICON,0,0);return}
+ g.save();g.scale(2,2);g.fillStyle='#0c2340';g.fillRect(0,0,128,128);g.strokeStyle='#3a78c2';for(let i=0;i<=128;i+=16){g.beginPath();g.moveTo(i,0);g.lineTo(i,128);g.moveTo(0,i);g.lineTo(128,i);g.stroke()}g.fillStyle='#ffd23f';g.font='bold 52px sans-serif';g.textAlign='center';g.fillText('藍圖',64,80);g.restore()}
+const showIcon=()=>{drawIcon($('#ip').getContext('2d'));$('#ir').disabled=!ICON};
+function parseVer(s){s=(s||'').trim()||'1.0.0';if(!/^\d{1,4}(\.\d{1,4}){0,2}$/.test(s))throw new Error('版本格式錯誤，請填像 1.0.0 的數字');const a=s.split('.').map(Number);while(a.length<3)a.push(0);return a}
+
+/* ---------- 產生資源包 ---------- */
+async function make(){
+ const ver=parseVer($('#vr').value);ovl();BP=prep(xf(CELLS));const B=BP,{sx,sy,sz}=B,name=$('#nm').value.trim()||'Blueprint',G=geo(),VW=Math.max(sx,sz)+4,VH=sy+2,J=JSON.stringify;
+ const gj='{"format_version":"1.12.0","minecraft:geometry":['+G.map((g,i)=>`{"description":{"identifier":"geometry.bp${i}","texture_width":16,"texture_height":16,"visible_bounds_width":${VW},"visible_bounds_height":${VH},"visible_bounds_offset":[${sx/2},${VH/2},${-sz/2}]},"bones":[${[...g.L].map(([y,c])=>`{"name":"l${y}","pivot":[0,0,0],"cubes":[${c.join(',')}]}`).join(',')}]}`).join(',')+']}';
+ const all=Array.from({length:sy},(_,y)=>`query.get_name=='L${y+1}'`).join('||');
+ const tex={default:'textures/entity/armor_stand',enchanted:'textures/misc/enchanted_item_glint'},geom={default:'geometry.armor_stand'},rc={},names=['controller.render.armor_stand'];
+ const TC={g:{r:.48,g:.74,b:.42},l:{r:.36,g:.65,b:.22}};
+ G.forEach((g,i)=>{tex['t'+i]=g.p;geom['g'+i]='geometry.bp'+i;const n='controller.render.bp'+i;names.push(n);
+  rc[n]={geometry:'Geometry.g'+i,materials:[{'*':'Material.bp'}],textures:['Texture.t'+i],
+   part_visibility:[{'*':false},...[...g.L.keys()].map(y=>({['l'+y]:`variable.bp_all||query.get_name=='L${y+1}'`}))]};
+  if(g.t)rc[n].color={...TC[g.t],a:1}});
+ const ent={format_version:'1.10.0','minecraft:client_entity':{description:{identifier:'minecraft:armor_stand',min_engine_version:'1.8.0',
+  materials:{default:'armor_stand',enchanted:'armor_stand_glint',bp:'entity_alphatest'},textures:tex,geometry:geom,
+  scripts:{pre_animation:[`variable.bp_all=!(${all});`]},render_controllers:names,enable_attachables:true}}};
+ const rowsUi=[...B.mats].sort((a,b)=>b[1]-a[1]).map(([n,c],i)=>{const t=T(n,2),im={type:'image',texture:t?t[0]:'textures/blueprint/missing',size:[10,10]};if(t&&t[1]){const k=TC[t[1]];im.color=[k.r,k.g,k.b]}
+  return{['r'+i]:{type:'stack_panel',orientation:'horizontal',size:['100%',12],controls:[{i:im},{t:{type:'label',text:`§7${n} §fx${c} §8(${Math.floor(c/64)}組+${c%64})`,font_scale_factor:0.9,offset:[3,1]}}]}}});
+ const txt=`§b藍圖 ${sx}×${sy}×${sz}　共 ${B.tot} 個方塊\n§e分層：用命名牌把盔甲座命名為 L1~L${sy} 只顯示該層，不命名＝全部顯示\n§f所需材料：`;
+ const ui={namespace:'bp',
+  root:{type:'panel',controls:[
+   {bp_tg:{type:'toggle',size:[46,12],anchor_from:'top_left',anchor_to:'top_left',offset:[4,34],toggle_name:'bp_tg',toggle_default_state:false,checked_control:'on',unchecked_control:'off',
+    button_mappings:[{from_button_id:'button.menu_select',to_button_id:'button.menu_select',mapping_type:'pressed'}],
+    controls:[{on:{type:'label',text:'§e[藍圖]'}},{off:{type:'label',text:'§b[藍圖]'}}]}},
+   {win:{type:'image',texture:'textures/ui/Black',alpha:0.85,size:['72%','74%'],anchor_from:'center',anchor_to:'center',layer:30,
+    controls:[{'list@common.scrolling_panel':{'$show_background':false,'$scrolling_content':'bp.content',size:['100% - 4px','100% - 4px']}}],
+    bindings:[{binding_type:'view',source_control_name:'bp_tg',source_property_name:'#toggle_state',target_property_name:'#visible'}]}}]},
+  content:{type:'stack_panel',orientation:'vertical',size:['100%','default'],controls:[{h:{type:'label',text:txt,size:['100%','default'],font_scale_factor:0.9}},...rowsUi]}};
+ const T8=(n,o)=>({n,d:enc.encode(typeof o==='string'?o:J(o))});
+ const au=$('#au').value.split(/[,，、;；]+/).map(s=>s.trim()).filter(Boolean),desc=$('#ds').value.trim()||`藍圖材質包 ${sx}×${sy}×${sz}`;
+ const files=[T8('manifest.json',{format_version:2,header:{name:name+' 藍圖',description:desc,uuid:crypto.randomUUID(),version:ver,min_engine_version:[1,20,0]},modules:[{type:'resources',uuid:crypto.randomUUID(),version:ver}],...(au.length?{metadata:{authors:au}}:{})}),
+  T8('entity/armor_stand.entity.json',ent),T8('models/entity/blueprint.geo.json',gj),T8('render_controllers/blueprint.render_controllers.json',{format_version:'1.8.0',render_controllers:rc}),
+  T8('ui/_ui_defs.json',{ui_defs:['ui/blueprint_ui.json']}),T8('ui/blueprint_ui.json',ui),
+  T8('ui/hud_screen.json',{namespace:'hud',root_panel:{modifications:[{array_name:'controls',operation:'insert_back',value:[{'bp_root@bp.root':{}}]}]}}),
+  {n:'pack_icon.png',d:await png(256,256,drawIcon)},
+  {n:'textures/blueprint/missing.png',d:await png(16,16,g=>{g.fillStyle='#000';g.fillRect(0,0,16,16);g.fillStyle='#f800f8';g.fillRect(8,0,8,8);g.fillRect(0,8,8,8)})}];
+ const blob=await zip(files);LAST={blob,name};
+ return`完成：${G.length} 組貼圖、${(blob.size/1048576).toFixed(2)} MB，請按下方按鈕儲存`}
+let LAST=null;
+async function save(ext){const{blob,name}=LAST,fn=name+'.'+ext;
+ for(const t of['application/zip','application/octet-stream']){const file=new File([blob],fn,{type:t});
+  try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:fn});return}}catch(e){if(e.name==='AbortError')return}}
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([blob],{type:'application/octet-stream'}));a.download=fn;document.body.appendChild(a);a.click();a.remove()}
+
+$('#fi').onchange=e=>e.target.files[0]&&load(e.target.files[0]);
+const dz=$('#dz');dz.ondragover=e=>e.preventDefault();dz.ondrop=e=>{e.preventDefault();e.dataTransfer.files[0]&&load(e.dataTransfer.files[0])};
+$('#rg').oninput=draw;
+const stp=d=>{if(!BP)return;const r=$('#rg');r.value=Math.max(0,Math.min(BP.sy-1,+r.value+d));draw()};
+$('#lo').onclick=()=>stp(-1);$('#hi').onclick=()=>stp(1);
+$('#rt').onchange=$('#mi').onchange=()=>{if(CELLS){BP=prep(xf(CELLS));show()}};
+$('#cv').onclick=e=>{if(!BP)return;const c=e.target,q=c.getBoundingClientRect(),{sx,sy,sz,grid,recs}=BP,y=+$('#rg').value,x=Math.floor((e.clientX-q.left)*c.width/q.width/SC),z=Math.floor((e.clientY-q.top)*c.height/q.height/SC),ri=x<0||z<0||x>=sx||z>=sz?-1:grid[(x*sy+y)*sz+z];
+ $('#tip').textContent=`X${x} Y${y} Z${z}：`+(ri<0?'空':recs[ri].n+(recs[ri].bad?'（基岩版無對應紋理）':''))};
+try{$('#ov').value=localStorage.getItem('bpov')||''}catch(e){}
+$('#ov').oninput=()=>{try{localStorage.setItem('bpov',$('#ov').value)}catch(e){}};
+$('#ov').onchange=()=>{if(BP){ovl();mtl();draw()}};
+$('#cp').onclick=async()=>{const b=$('#cp');try{await navigator.clipboard.writeText([...document.querySelectorAll('#mt .mr')].map(e=>e.children[1].textContent+'  '+e.children[2].textContent).join('\n'));b.textContent='已複製 ✓'}catch(e){const g=document.createRange();g.selectNodeContents($('#mt'));getSelection().removeAllRanges();getSelection().addRange(g);b.textContent='已選取，請手動複製'}};
+$('#go').onclick=async()=>{const b=$('#go');b.disabled=true;$('#msg').textContent='產生中…';await new Promise(r=>setTimeout(r,30));
+ try{$('#msg').textContent=await make();$('#dl').hidden=false}catch(e){$('#msg').textContent='失敗：'+e.message}b.disabled=false};
+$('#sv').onclick=()=>save('mcpack');$('#sz').onclick=()=>save('zip');
+$('#ii').onchange=e=>{const f=e.target.files[0];if(!f)return;const u=URL.createObjectURL(f),im=new Image();
+ im.onload=()=>{const w=im.naturalWidth||256,h=im.naturalHeight||256,m=Math.min(w,h),c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');g.imageSmoothingEnabled=m>128;g.imageSmoothingQuality='high';g.drawImage(im,(w-m)/2,(h-m)/2,m,m,0,0,256,256);URL.revokeObjectURL(u);ICON=c;showIcon()};
+ im.onerror=()=>{URL.revokeObjectURL(u);$('#msg').textContent='圖示讀取失敗，請換一張 PNG／JPG 圖片'};
+ im.src=u;e.target.value=''};
+$('#ir').onclick=()=>{ICON=null;showIcon()};
+try{$('#au').value=localStorage.getItem('bpau')||''}catch(e){}
+$('#au').oninput=()=>{try{localStorage.setItem('bpau',$('#au').value)}catch(e){}};
+showIcon();
+</script>
+</body>
+</html>
