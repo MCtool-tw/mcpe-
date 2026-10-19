@@ -38,7 +38,7 @@ textarea{min-height:96px;font-size:12.5px}
 .mr{display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid #3a78c233}
 .mr .nm{flex:1;min-width:0;overflow-wrap:anywhere}.mr b{color:var(--cy);font-weight:600;white-space:nowrap}
 .ic{flex:none;width:28px;height:28px;background:#081a33;border:1px solid var(--ln)}
-.ic img{display:block;width:100%;height:100%;image-rendering:pixelated}
+.ic{overflow:hidden}.ic img{display:block;width:100%;height:auto;image-rendering:pixelated}
 .ic.t{background:#7ab55e}.ic.t img{mix-blend-mode:multiply}
 .ic.x{background:conic-gradient(#f800f8 25%,#000 0 50%,#f800f8 0 75%,#000 0)}
 .ipr{display:flex;gap:12px;align-items:center;margin-top:10px}
@@ -62,6 +62,7 @@ button.gh:disabled{cursor:default}
 
 <div class="c" id="info" hidden>
  <div class="st" id="st"></div>
+ <p class="hint" id="exs"></p>
  <div class="row"><label class="f">旋轉（順時針）<select id="rt"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label><label class="f"><input type="checkbox" id="mi"> 東西鏡像</label></div>
  <label class="f">圖層預覽：第 <span id="ly">1</span> 層（命名牌填 <code>L<span id="ln">1</span></code>）</label>
  <input type="range" id="rg" min="0" max="0" value="0" aria-label="圖層">
@@ -91,8 +92,9 @@ button.gh:disabled{cursor:default}
 <ol>
 <li>匯入藍圖後按「產生材質包」，開啟下載的 .mcpack 匯入遊戲，並在世界中啟用（排在最上層）。</li>
 <li>放置盔甲座，藍圖就會出現。藍圖的 (0,0,0) 角落＝盔甲座所在方塊，盔甲座朝南時方向與原圖相同。</li>
-<li>點遊戲畫面左上角的 <code>[藍圖]</code> 開啟所需材料清單。</li>
+<li>點遊戲畫面左上角石頭底圖的 <code>[藍圖]</code> 按鈕開啟所需材料清單。</li>
 <li>分層顯示：用命名牌把盔甲座命名為 <code>L1</code>、<code>L2</code>… 只顯示該層；不命名＝顯示全部。</li>
+<li>階梯、半磚、門、活板門、柵欄、牆、玻璃片、梯子、火把等會依方塊屬性畫出對應形狀；草、花、樹苗、蠟燭等小型裝飾不會畫出來，但仍會列在材料清單。旋轉／鏡像時方塊朝向會一起轉。</li>
 <li>基岩版沒有的方塊會顯示錯誤紋理（洋紅黑格）。紋理直接引用遊戲內建資源，不內含任何官方素材。</li>
 <li>匯入後可旋轉／鏡像藍圖；點預覽圖可查方塊名稱；洋紅黑格可在「自訂紋理對照」填入基岩版貼圖路徑修正。</li>
 </ol></div>
@@ -117,71 +119,176 @@ function nbt(u8,le){const d=new DataView(u8.buffer,u8.byteOffset,u8.byteLength),
  const t=d.getInt8(p++);str();return val(t)}
 const bits=(W,i,b)=>{const s=i*b,w=s>>>5,o=s&31;let v=W[w]>>>o;if(o+b>32)v|=W[w+1]<<(32-o);return v&((1<<b)-1)};
 
-/* ---------- 方塊名稱 → 基岩版貼圖 ---------- */
-const SKIP=/^(air|cave_air|void_air|water|lava|flowing_water|flowing_lava|bubble_column|light|structure_void)$/;
+const TX='https://raw.githubusercontent.com/Mojang/bedrock-samples/main/resource_pack/';
+/* ---------- 方塊名稱 → 基岩版貼圖（會用官方貼圖清單核對，找不到就改試備用名稱） ---------- */
+const SKIP=/^(air|cave_air|void_air|water|lava|flowing_water|flowing_lava|bubble_column|light|structure_void|barrier|moving_piston|piston_head)$/;
+// 不畫出幾何、但仍計入材料的小型裝飾（用方塊硬畫只會變成怪怪的整塊方塊）
+const NR=new RegExp('^(?:'+['short_grass','grass','tall_grass','fern','large_fern','dead_bush','(?:tall_)?seagrass','kelp(?:_plant)?','sugar_cane','vine','(?:weeping|twisting)_vines(?:_plant)?','cave_vines(?:_plant)?','glow_lichen','sculk_vein','cobweb','fire','soul_fire','redstone_wire','tripwire(?:_hook)?','string','nether_sprouts','(?:crimson|warped)_(?:roots|fungus)','(?:red|brown)_mushroom','spore_blossom','hanging_roots','small_dripleaf','big_dripleaf(?:_stem)?','pointed_dripstone','(?:small|medium|large)_amethyst_bud','amethyst_cluster','sweet_berry_bush','wheat','carrots','potatoes','beetroots','(?:melon|pumpkin)_stem','attached_(?:melon|pumpkin)_stem','nether_wart','cocoa','pink_petals','wildflowers','leaf_litter','bush','firefly_bush','short_dry_grass','tall_dry_grass','sea_pickle','turtle_egg','frogspawn','lily_pad','torchflower_crop','pitcher_crop','\\w+_sapling','\\w+_propagule','potted_\\w+','\\w+_(?:tulip|orchid)','allium','azure_bluet','cornflower','lily_of_the_valley','dandelion','poppy','oxeye_daisy','torchflower','pitcher_plant','wither_rose','peony','lilac','rose_bush','sunflower','\\w*coral(?:_fan|_wall_fan)?','bamboo(?:_sapling)?','\\w+_banner','\\w+_wall_banner','\\w+_(?:head|skull)','\\w+_wall_(?:head|skull)','(?:\\w+_)?candle','(?:\\w+_)?candle_cake','lever','repeater','comparator'].join('|')+')$');
 const COL=new Set('white orange magenta light_blue yellow lime pink gray light_gray cyan purple blue brown green red black'.split(' '));
-const WD={oak:'oak',spruce:'spruce',birch:'birch',jungle:'jungle',acacia:'acacia',dark_oak:'big_oak'};
-const FACE={grass_block:['grass_top','dirt','grass_side'],podzol:['dirt_podzol_top','dirt','dirt_podzol_side'],mycelium:['mycelium_top','dirt','mycelium_side'],sandstone:['sandstone_top','sandstone_bottom','sandstone_normal'],red_sandstone:['red_sandstone_top','red_sandstone_bottom','red_sandstone_normal'],quartz_block:['quartz_block_top','quartz_block_bottom','quartz_block_side'],bookshelf:['planks_oak','planks_oak','bookshelf'],crafting_table:['crafting_table_top','planks_oak','crafting_table_side'],furnace:['furnace_top','furnace_top','furnace_side'],tnt:['tnt_top','tnt_bottom','tnt_side'],hay_block:['hay_block_top','hay_block_top','hay_block_side'],pumpkin:['pumpkin_top','pumpkin_top','pumpkin_side'],melon:['melon_top','melon_top','melon_side'],deepslate:['deepslate/deepslate_top','deepslate/deepslate_top','deepslate/deepslate'],blackstone:['blackstone_top','blackstone_top','blackstone'],basalt:['basalt_top','basalt_top','basalt_side'],polished_basalt:['polished_basalt_top','polished_basalt_top','polished_basalt_side'],bone_block:['bone_block_top','bone_block_top','bone_block_side'],ancient_debris:['ancient_debris_top','ancient_debris_top','ancient_debris_side'],purpur_pillar:['purpur_pillar_top','purpur_pillar_top','purpur_pillar']};
-const FIX={granite:'stone_granite',diorite:'stone_diorite',andesite:'stone_andesite',polished_granite:'stone_granite_smooth',polished_diorite:'stone_diorite_smooth',polished_andesite:'stone_andesite_smooth',mossy_cobblestone:'cobblestone_mossy',stone_bricks:'stonebrick',mossy_stone_bricks:'stonebrick_mossy',cracked_stone_bricks:'stonebrick_cracked',chiseled_stone_bricks:'stonebrick_carved',smooth_stone:'stone_slab_top',bricks:'brick',nether_bricks:'nether_brick',red_nether_bricks:'red_nether_brick',snow_block:'snow',packed_ice:'ice_packed',terracotta:'hardened_clay',smooth_sandstone:'sandstone_top',cut_sandstone:'sandstone_top',smooth_red_sandstone:'red_sandstone_top',end_stone_bricks:'end_bricks',purpur:'purpur_block',glass_pane:'glass',prismarine:'prismarine_rough',prismarine_bricks:'prismarine_bricks',dark_prismarine:'prismarine_dark',cobbled_deepslate:'deepslate/cobbled_deepslate',polished_deepslate:'deepslate/polished_deepslate',deepslate_bricks:'deepslate/deepslate_bricks',deepslate_tiles:'deepslate/deepslate_tiles',chiseled_deepslate:'deepslate/chiseled_deepslate',cracked_deepslate_bricks:'deepslate/cracked_deepslate_bricks',cracked_deepslate_tiles:'deepslate/cracked_deepslate_tiles'};
-const CP={wool:'wool_colored_',carpet:'wool_colored_',concrete:'concrete_',concrete_powder:'concrete_powder_',terracotta:'hardened_clay_stained_',stained_glass:'glass_',stained_glass_pane:'glass_',glazed_terracotta:'glazed_terracotta_'};
-function T(n,f){ // f:0頂 1底 2側 → [路徑,色調]；null=基岩版沒有
- const o=OV[n]||OV[n.replace(/^waxed_/,'').replace(/_(stairs|slab|wall|fence_gate|fence|button|pressure_plate|trapdoor|door|wall_sign|sign)$/,'')];if(o)return[o[f]||o[0],0];
+const WT={oak:'oak',spruce:'spruce',birch:'birch',jungle:'jungle',acacia:'acacia',dark_oak:'big_oak'};
+const NWOOD='oak|spruce|birch|jungle|acacia|dark_oak|mangrove|cherry|pale_oak|bamboo|crimson|warped';
+const cl=c=>c==='light_gray'?'silver':c;
+// 值＝[頂,底,側]；用 | 列出備用貼圖名稱，@g／@l 代表草／樹葉色調
+const FACE={grass_block:['grass_top@g|?grass_carried','dirt','?grass_side_carried|grass_side'],dirt_path:['grass_path_top','dirt','grass_path_side'],podzol:['dirt_podzol_top','dirt','dirt_podzol_side'],mycelium:['mycelium_top','dirt','mycelium_side'],farmland:['farmland_dry','dirt','dirt'],
+ sandstone:['sandstone_top','sandstone_bottom','sandstone_normal'],chiseled_sandstone:['sandstone_top','sandstone_bottom','sandstone_carved'],cut_sandstone:['sandstone_top','sandstone_bottom','sandstone_smooth'],smooth_sandstone:['sandstone_top','sandstone_top','sandstone_top'],
+ red_sandstone:['red_sandstone_top','red_sandstone_bottom','red_sandstone_normal'],chiseled_red_sandstone:['red_sandstone_top','red_sandstone_bottom','red_sandstone_carved'],cut_red_sandstone:['red_sandstone_top','red_sandstone_bottom','red_sandstone_smooth'],smooth_red_sandstone:['red_sandstone_top','red_sandstone_top','red_sandstone_top'],
+ quartz_block:['quartz_block_top','quartz_block_bottom','quartz_block_side'],chiseled_quartz_block:['quartz_block_chiseled_top','quartz_block_chiseled_top','quartz_block_chiseled'],quartz_pillar:['quartz_block_lines_top','quartz_block_lines_top','quartz_block_lines'],smooth_quartz:['quartz_block_bottom','quartz_block_bottom','quartz_block_bottom'],
+ bookshelf:['planks_oak','planks_oak','bookshelf'],chiseled_bookshelf:['chiseled_bookshelf_top','chiseled_bookshelf_top','chiseled_bookshelf_side|chiseled_bookshelf_empty'],crafting_table:['crafting_table_top','planks_oak','crafting_table_side'],
+ furnace:['furnace_top','furnace_top','furnace_side'],blast_furnace:['blast_furnace_top','blast_furnace_top','blast_furnace_side'],smoker:['smoker_top','smoker_bottom','smoker_side'],dispenser:['furnace_top','furnace_top','furnace_side'],dropper:['furnace_top','furnace_top','furnace_side'],
+ tnt:['tnt_top','tnt_bottom','tnt_side'],hay_block:['hay_block_top','hay_block_top','hay_block_side'],pumpkin:['pumpkin_top','pumpkin_top','pumpkin_side'],carved_pumpkin:['pumpkin_top','pumpkin_top','pumpkin_side'],jack_o_lantern:['pumpkin_top','pumpkin_top','pumpkin_side'],melon:['melon_top','melon_top','melon_side'],
+ deepslate:['deepslate/deepslate_top','deepslate/deepslate_top','deepslate/deepslate'],blackstone:['blackstone_top','blackstone_top','blackstone'],basalt:['basalt_top','basalt_top','basalt_side'],polished_basalt:['polished_basalt_top','polished_basalt_top','polished_basalt_side'],bone_block:['bone_block_top','bone_block_top','bone_block_side'],ancient_debris:['ancient_debris_top','ancient_debris_top','ancient_debris_side'],purpur_pillar:['purpur_pillar_top','purpur_pillar_top','purpur_pillar'],
+ jukebox:['jukebox_top','jukebox_side','jukebox_side'],note_block:['noteblock'],barrel:['barrel_top','barrel_bottom','barrel_side'],piston:['piston_top_normal','piston_bottom','piston_side'],sticky_piston:['piston_top_sticky','piston_bottom','piston_side'],observer:['observer_top','observer_top','observer_side'],
+ beehive:['beehive_top','beehive_top','beehive_side'],bee_nest:['bee_nest_top','bee_nest_bottom','bee_nest_side'],loom:['loom_top','loom_bottom','loom_side'],smithing_table:['smithing_table_top','smithing_table_bottom','smithing_table_side'],fletching_table:['fletcher_table_top|fletching_table_top','fletcher_table_top|fletching_table_top','fletcher_table_side|fletching_table_side'],
+ cartography_table:['cartography_table_top','cartography_table_side3|cartography_table_side1','cartography_table_side2|cartography_table_side1'],lectern:['lectern_top','lectern_bottom','lectern_sides'],composter:['composter_top','composter_bottom','composter_side'],grindstone:['grindstone_round','grindstone_round','grindstone_side'],stonecutter:['stonecutter2_top|stonecutter_top','stonecutter2_bottom|stonecutter_bottom','stonecutter2_side|stonecutter_side'],
+ target:['target_top','target_top','target_side'],lodestone:['lodestone_top','lodestone_top','lodestone_side'],respawn_anchor:['respawn_anchor_top_off','respawn_anchor_bottom','respawn_anchor_side0'],cauldron:['cauldron_top','cauldron_bottom','cauldron_side'],
+ honey_block:['honey_top','honey_bottom','honey_side'],slime_block:['slime'],redstone_lamp:['redstone_lamp_off'],crimson_nylium:['crimson_nylium_top','netherrack','crimson_nylium_side'],warped_nylium:['warped_nylium_top','netherrack','warped_nylium_side'],
+ ochre_froglight:['ochre_froglight_top','ochre_froglight_top','ochre_froglight_side'],verdant_froglight:['verdant_froglight_top','verdant_froglight_top','verdant_froglight_side'],pearlescent_froglight:['pearlescent_froglight_top','pearlescent_froglight_top','pearlescent_froglight_side'],
+ torch:['torch_on'],soul_torch:['soul_torch'],wall_torch:['torch_on'],soul_wall_torch:['soul_torch'],redstone_torch:['redstone_torch_on'],redstone_wall_torch:['redstone_torch_on'],ladder:['ladder'],rail:['rail_normal'],powered_rail:['rail_golden'],detector_rail:['rail_detector'],activator_rail:['rail_activator'],
+ chest:['planks_oak'],trapped_chest:['planks_oak'],ender_chest:['obsidian'],flower_pot:['flower_pot'],cake:['cake_top','cake_bottom','cake_side'],end_rod:['end_rod'],lantern:['lantern'],soul_lantern:['soul_lantern'],chain:['chain'],iron_bars:['iron_bars'],glass_pane:['glass'],snow:['snow']};
+const FIX={granite:'stone_granite',diorite:'stone_diorite',andesite:'stone_andesite',polished_granite:'stone_granite_smooth',polished_diorite:'stone_diorite_smooth',polished_andesite:'stone_andesite_smooth',mossy_cobblestone:'cobblestone_mossy',stone_bricks:'stonebrick',mossy_stone_bricks:'stonebrick_mossy',cracked_stone_bricks:'stonebrick_cracked',chiseled_stone_bricks:'stonebrick_carved',smooth_stone:'stone_slab_top',bricks:'brick',nether_bricks:'nether_brick',red_nether_bricks:'red_nether_brick',snow_block:'snow',packed_ice:'ice_packed',terracotta:'hardened_clay',end_stone_bricks:'end_bricks',prismarine:'prismarine_rough',dark_prismarine:'prismarine_dark',magma_block:'magma',nether_quartz_ore:'quartz_ore',lit_redstone_lamp:'redstone_lamp_on',light_weighted:'gold_block',heavy_weighted:'iron_block',cobbled_deepslate:'deepslate/cobbled_deepslate',polished_deepslate:'deepslate/polished_deepslate',deepslate_bricks:'deepslate/deepslate_bricks',deepslate_tiles:'deepslate/deepslate_tiles',chiseled_deepslate:'deepslate/chiseled_deepslate',cracked_deepslate_bricks:'deepslate/cracked_deepslate_bricks',cracked_deepslate_tiles:'deepslate/cracked_deepslate_tiles',tinted_glass:'tinted_glass',stone:'stone'};
+const stripSfx=n=>n.replace(/^waxed_/,'').replace(/_(stairs|slab|wall|fence_gate|fence|button|pressure_plate)$/,'');
+function cands(n,f,p){const C=[],A=(s,t)=>{for(let x of String(s).split('|')){if(!x)continue;let o=0,q,tt=t||0;if(x[0]==='?'){o=1;x=x.slice(1)}q=x;const i=x.indexOf('@');if(i>0){q=x.slice(0,i);tt=x.slice(i+1)}C.push([q,tt,o])}};
+ let b=n.replace(/^waxed_/,'').replace(/^infested_/,''),m;const up=p&&p.half==='upper';
+ if(m=b.match(/^(\w+?)_door$/)){const w=m[1],dn=w==='oak'?'wood':WT[w]||w;
+  {const hf=/^(crimson|warped)$/.test(w);A(w==='iron'?(up?'door_iron_upper|iron_door_top':'door_iron_lower|iron_door_bottom'):(up?`${hf?`huge_fungus/${w}_door_top|huge_fungus/${w}_door_upper|`:''}door_${dn}_upper|${w}_door_top|${w}_door_upper|huge_fungus/${w}_door_top`:`${hf?`huge_fungus/${w}_door_lower|huge_fungus/${w}_door_bottom|`:''}door_${dn}_lower|${w}_door_bottom|${w}_door_lower|huge_fungus/${w}_door_bottom`))}return C}
+ if(m=b.match(/^(\w+?)_trapdoor$/)){const w=m[1];A((w==='oak'?'trapdoor|':'')+(/^(crimson|warped)$/.test(w)?`huge_fungus/${w}_trapdoor|${w}_trapdoor`:`${w}_trapdoor|huge_fungus/${w}_trapdoor`)+'|trapdoor');return C}
+ if(m=b.match(/^(\w+?)_(?:wall_)?(?:hanging_)?sign$/))return cands(m[1]+'_planks',f,p);
+ b=b.replace(/_(stairs|slab|wall|fence_gate|fence|button|pressure_plate)$/,'');
+ if(new RegExp('^('+NWOOD+')$').test(b))b+='_planks';
+ if(b==='petrified_oak')b='oak_planks';if(b==='quartz')b='quartz_block';
+ const sfx=f===0?'_top':f===1?'_bottom':'_side';
+ if(FACE[b])A(FACE[b][f]||FACE[b][0]);
+ if(m=b.match(new RegExp('^(stripped_)?('+NWOOD+')_(log|wood|stem|hyphae|block)$'))){const st=m[1],w=m[2],k=m[3],cap=(k==='log'||k==='stem'||(k==='block'&&w==='bamboo'))&&f<2,leg=WT[w],s=cap?'_top':'';
+  if(w==='crimson'||w==='warped'){const t=(st?'stripped_':'')+w+'_stem';A(`huge_fungus/${t}${s}|${t}${s}`)}
+  else if(w==='bamboo')A((st?'stripped_':'')+'bamboo_block'+s);
+  else if(st)A(`stripped_${w}_log${s}|stripped_${leg||w}_log${s}`);
+  else if(leg)A(cap?`log_${leg}_top`:`log_${leg}`);
+  else A(cap?`${w}_log_top`:`${w}_log_side|${w}_log`)}
+ if(m=b.match(new RegExp('^('+NWOOD+')_planks$'))){const w=m[1];A((WT[w]?'planks_'+WT[w]+'|':'')+(/^(crimson|warped)$/.test(w)?`huge_fungus/${w}_planks|${w}_planks`:`${w}_planks|huge_fungus/${w}_planks`))}
+ if(m=b.match(/^(\w+)_leaves$/)){const w=m[1],t=/^(cherry|azalea|flowering_azalea|pale_oak)$/.test(w)?0:'l';A(w==='flowering_azalea'?'azalea_leaves_flowers':(WT[w]?`leaves_${WT[w]}|${w}_leaves`:`${w}_leaves`),t)}
+ if((m=b.match(/^(light_gray|light_blue|gray|white|orange|magenta|yellow|lime|pink|cyan|purple|blue|brown|green|red|black)_(wool|carpet|concrete_powder|concrete|terracotta|stained_glass_pane|stained_glass|glazed_terracotta|shulker_box|bed)$/))){const c=cl(m[1]),k=m[2];
+  if(k==='bed'&&f===2)A('planks_oak');
+  else A({wool:'wool_colored_',carpet:'wool_colored_',bed:'wool_colored_',shulker_box:'wool_colored_',concrete:'concrete_',concrete_powder:'concrete_powder_',terracotta:'hardened_clay_stained_',stained_glass:'glass_',stained_glass_pane:f<2?'glass_pane_top_':'glass_',glazed_terracotta:'glazed_terracotta_'}[k]+c);
+  if(k==='stained_glass_pane')A('glass_'+c)}
+ if(b==='bed')A('planks_oak');
+ if(FIX[b])A(FIX[b]);else if(FIX[b+'s'])A(FIX[b+'s']);
+ for(const x of[b,b+'s',b.replace(/_block$/,''),b+'_block']){A(x);A(x+sfx);A('huge_fungus/'+x);A('deepslate/'+x)}
+ return C}
+let EX=null,FL=null;
+function T(n,f,p){const o=OV[n]||OV[stripSfx(n)];if(o)return[o[f]||o[0],0];
  if(n.includes(':'))return null;
- let b=n.replace(/^waxed_/,'').replace(/_(stairs|slab|wall|fence_gate|fence|button|pressure_plate|trapdoor|door|wall_sign|sign)$/,''),m;
- const P=s=>['textures/blocks/'+s,0];
- if(b==='quartz')b='quartz_block';
- if(FACE[b]){const s=FACE[b][f];return['textures/blocks/'+s,s==='grass_top'?'g':0]}
- if(WD[b])return P('planks_'+WD[b]);
- if(m=b.match(/^(stripped_)?(\w+)_(log|wood)$/)){const t=m[3]==='log'&&f<2?'_top':'';return P(m[1]?`stripped_${m[2]}_log${t}`:WD[m[2]]?`log_${WD[m[2]]}${t}`:`${m[2]}_log${t}`)}
- if(m=b.match(/^(\w+)_planks$/))return P(WD[m[1]]?'planks_'+WD[m[1]]:b);
- if(m=b.match(/^(\w+)_leaves$/))return['textures/blocks/'+(WD[m[1]]?'leaves_'+WD[m[1]]:b),'l'];
- if((m=b.match(/^(\w+?)_(wool|carpet|concrete_powder|concrete|terracotta|stained_glass_pane|stained_glass|glazed_terracotta)$/))&&COL.has(m[1]))return P(CP[m[2]]+(m[1]==='light_gray'?'silver':m[1]));
- return P(FIX[b]||FIX[b+'s']||b)}
+ const C=cands(n,f,p||{});
+ for(const[c,t,o]of C){const q='textures/blocks/'+c;if(EX?EX.has(q):!o)return[q,t]}
+ return EX||!C.length?null:['textures/blocks/'+C[0][0],C[0][1]]}
+// 讀取官方貼圖清單（有網路才核對；失敗就沿用最佳猜測）
+async function loadEX(){const rd=s=>(s.match(/textures\/blocks\/[^"]+/g)||[]).map(x=>x.replace(/\.(png|tga)$/,''));
+ try{const c=JSON.parse(localStorage.getItem('bpex')||'null');if(c&&Date.now()-c.t<6048e5&&c.e.length>100){EX=new Set(c.e);FL=new Set(c.f);return true}}catch(e){}
+ try{const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),9000),g=u=>fetch(TX+u,{signal:ac.signal}).then(r=>r.ok?r.text():'');
+  const[a,b]=await Promise.all([g('textures/terrain_texture.json'),g('textures/flipbook_textures.json').catch(()=>'')]);clearTimeout(tm);
+  const e=rd(a),f=rd(b);if(e.length>100){EX=new Set(e);FL=new Set(f);try{localStorage.setItem('bpex',JSON.stringify({t:Date.now(),e:[...EX],f:[...FL]}))}catch(x){}return true}}catch(e){}
+ return false}
+// 動畫貼圖是由很多格直向疊起來，要讀圖才知道高度，才能只取第一格
+function texSize(path){return new Promise(r=>{const im=new Image(),t=setTimeout(()=>r([16,16]),6000);im.onload=()=>{clearTimeout(t);r([im.naturalWidth||16,im.naturalHeight||16])};im.onerror=()=>{clearTimeout(t);r([16,16])};im.src=TX+path+'.png'})}
 /* 基岩版舊式方塊名稱 → Java 式名稱 */
-function norm(n,s){n=n.replace(/^minecraft:/,'');const c=s.color==='silver'?'light_gray':s.color;
- switch(n){case'planks':return(s.wood_type||'oak')+'_planks';case'log':return(s.old_log_type||s.wood_type||'oak')+'_log';case'log2':return(s.new_log_type||'acacia')+'_log';
+function norm(n,s){n=n.replace(/^minecraft:/,'');const c=s.color==='silver'?'light_gray':s.color,w=s.wood_type||'oak';
+ switch(n){case'planks':return w+'_planks';case'log':return(s.old_log_type||w)+'_log';case'log2':return(s.new_log_type||'acacia')+'_log';
  case'leaves':return(s.old_leaf_type||'oak')+'_leaves';case'leaves2':return(s.new_leaf_type||'acacia')+'_leaves';
  case'wool':case'concrete':case'stained_glass':case'stained_glass_pane':case'carpet':return c+'_'+n;case'concretePowder':return c+'_concrete_powder';
  case'stained_hardened_clay':return c+'_terracotta';case'hardened_clay':return'terracotta';case'grass':return'grass_block';case'brick_block':return'bricks';
+ case'fence':return w+'_fence';case'wooden_slab':case'double_wooden_slab':return w+'_slab';case'wooden_door':return'oak_door';case'trapdoor':return'oak_trapdoor';case'wooden_button':return'oak_button';case'wooden_pressure_plate':return'oak_pressure_plate';case'standing_sign':case'wall_sign':return'oak_sign';
+ case'stone_stairs':return'cobblestone_stairs';case'normal_stone_stairs':return'stone_stairs';case'iron_trapdoor':return'iron_trapdoor';
  case'stonebrick':return{mossy:'mossy_stone_bricks',cracked:'cracked_stone_bricks',chiseled:'chiseled_stone_bricks'}[s.stone_brick_type]||'stone_bricks';
  case'stone':{const t=s.stone_type;return t&&t!=='stone'?(t.endsWith('_smooth')?'polished_'+t.slice(0,-7):t):'stone'}}
  return n}
+/* 基岩版方塊狀態 → Java 式屬性（階梯、半磚、柱狀方塊等才畫得對） */
+function bprops(n,s){const o={},D=['east','west','south','north'],O={east:'west',west:'east',north:'south',south:'north'};
+ if(s.weirdo_direction!==undefined){o.facing=D[s.weirdo_direction];o.half=s.upside_down_bit==1?'top':'bottom'}
+ if(/trapdoor$/.test(n)&&s.direction!==undefined){o.facing=O[D[s.direction]];o.half=s.upside_down_bit==1?'top':'bottom';o.open=s.open_bit==1?'true':'false'}
+ if(/_door$|^wooden_door$/.test(n)||s.upper_block_bit!==undefined){if(s.upper_block_bit!==undefined)o.half=s.upper_block_bit==1?'upper':'lower';if(s.direction!==undefined)o.facing=['east','south','west','north'][s.direction&3];o.open=s.open_bit==1?'true':'false';o.hinge=s.door_hinge_bit==1?'right':'left'}
+ const v=s['minecraft:vertical_half']||(s.top_slot_bit==1?'top':null);if(v&&/_slab$/.test(n))o.type=v;
+ if(s.pillar_axis)o.axis=s.pillar_axis;
+ if(s['minecraft:cardinal_direction'])o.facing=s['minecraft:cardinal_direction'];
+ for(const k in s)if(!(k in o)&&typeof s[k]!=='object')o['_'+k]=s[k];
+ return o}
 
-/* ---------- 形狀 ---------- */
-const FULL=[0,0,0,16,16,16];
-const NOP=/glass|leaves|ice$|slime|honey|door|ladder|sign|vine|sapling|rail|lever|button|stairs|bars|chain|flower|fern|grass$|tulip|rose|lantern|candle|banner|head|skull|bed$|cake|pot$|plate|fence|wall|pane|slab|torch/;
-function shape(n,sk){
- if(/_slab$/.test(n))return sk==='double'?FULL:[0,sk==='top'?8:0,0,16,8,16];
- if(/(carpet|pressure_plate)$/.test(n))return[0,0,0,16,1,16];
- if(/_fence$/.test(n))return[6,0,6,4,16,4];
- if(/_wall$/.test(n))return[4,0,4,8,16,8];
- if(/(_pane|iron_bars|chain|_rod)$/.test(n))return[7,0,7,2,16,2];
- if(/torch$/.test(n))return[7,0,7,2,10,2];
- return FULL}
-function mk(n,sk){const sh=shape(n,sk),t=[0,1,2].map(f=>T(n,f)),bad=!t[0];
- return{n,sh,bad,op:sh===FULL&&!NOP.test(n)&&!bad,t:bad?[0,1,2].map(()=>['textures/blueprint/missing',0]):t}}
+/* ---------- 形狀（方塊內 0~16 像素的長方體，x 東、y 上、z 南） ---------- */
+const FULL=[[0,0,0,16,16,16]];
+const CW={north:'east',east:'south',south:'west',west:'north'},CCW={north:'west',west:'south',south:'east',east:'north'},OPP={north:'south',south:'north',east:'west',west:'east'};
+const hb=d=>({east:[8,0,0,16,16,16],west:[0,0,0,8,16,16],north:[0,0,0,16,16,8],south:[0,0,8,16,16,16]})[d];
+const sl=(d,t)=>({east:[16-t,0,0,16,16,16],west:[0,0,0,t,16,16],north:[0,0,0,16,16,t],south:[0,0,16-t,16,16,16]})[d];
+const yb=(b,y0,y1)=>{const c=b.slice();c[1]=y0;c[4]=y1;return c};
+const isec=(a,b)=>[Math.max(a[0],b[0]),a[1],Math.max(a[2],b[2]),Math.min(a[3],b[3]),a[4],Math.min(a[5],b[5])];
+const NOPQ=/glass|leaves|^ice$|slime|honey|spawner|cauldron|hopper|anvil|enchanting|brewing|lectern|bell|campfire|composter|scaffolding|cactus|dragon_egg|conduit|beacon|big_dripleaf|decorated_pot|daylight|grindstone|stonecutter|portal|piston|sculk_sensor|sculk_shrieker|chorus/;
+const SCUL=/glass$|^ice$|slime_block|honey_block/;
+const AXB=/^(stripped_)?\w+_(log|wood|stem|hyphae)$|quartz_pillar|purpur_pillar|^(polished_)?basalt$|bone_block|hay_block|^deepslate$|bamboo_block|muddy_mangrove_roots/;
+function stairsB(p){const F=p.facing||'north',top=p.half==='top',sh=p.shape||'straight',L=CCW[F],R=CW[F],u0=top?0:8,u1=top?8:16,U=b=>yb(b,u0,u1),B=[[0,top?8:0,0,16,top?16:8,16]];
+ if(sh==='outer_left')B.push(U(isec(hb(F),hb(L))));else if(sh==='outer_right')B.push(U(isec(hb(F),hb(R))));
+ else if(sh==='inner_left'){B.push(U(hb(F)),U(isec(hb(OPP[F]),hb(L))))}else if(sh==='inner_right'){B.push(U(hb(F)),U(isec(hb(OPP[F]),hb(R))))}else B.push(U(hb(F)));
+ return B}
+function shp(n,p){n=n.replace(/^waxed_/,'');let m;const R=(k,b,o)=>({k,b,op:false,sc:false,...o});
+ if(/_slab$/.test(n)){const t=p.type||'bottom';return t==='double'?{k:'full',b:FULL,op:!NOPQ.test(n),sc:false}:R('slab',[t==='top'?[0,8,0,16,16,16]:[0,0,0,16,8,16]])}
+ if(/_stairs$/.test(n))return R('stairs',stairsB(p));
+ if(/_trapdoor$/.test(n)){const F=p.facing||'north';return R('trapdoor',[p.open==='true'?sl(OPP[F],3):p.half==='top'?[0,13,0,16,16,16]:[0,0,0,16,3,16]])}
+ if(/_door$/.test(n)){const F=p.facing||'north';return R('door',[p.open!=='true'?sl(OPP[F],3):sl(p.hinge==='right'?CCW[F]:CW[F],3)])}
+ if(/_fence_gate$/.test(n)){const F=p.facing||'north',ew=F==='east'||F==='west';return R('gate',p.open==='true'?(ew?[[7,5,0,9,16,2],[7,5,14,9,16,16]]:[[0,5,7,2,16,9],[14,5,7,16,16,9]]):[ew?[7,5,0,9,16,16]:[0,5,7,16,16,9]])}
+ if(/_fence$/.test(n))return R('fence',null,{wd:/nether_brick/.test(n)?'n':'w'});
+ if(/_wall$/.test(n))return R('wall',null);
+ if(/(_pane|_bars)$|^iron_bars$/.test(n))return R('pane',null);
+ if(/(^|_)chain$/.test(n)){const a=p.axis||'y';return R('chain',[a==='x'?[0,7,7,16,9,9]:a==='z'?[7,7,0,9,9,16]:[7,0,7,9,16,9]])}
+ if(/_pressure_plate$/.test(n))return R('plate',[[1,0,1,15,1,15]]);
+ if(/_carpet$/.test(n))return R('carpet',[[0,0,0,16,1,16]]);
+ if(n==='snow')return R('snow',[[0,0,0,16,Math.max(2,2*(+p.layers||1)),16]]);
+ if(/_button$/.test(n)){const f=p.face||'wall',F=p.facing||'north';if(f==='floor')return R('button',[[5,0,5,11,2,11]]);if(f==='ceiling')return R('button',[[5,14,5,11,16,11]]);
+  const w=OPP[F],b=yb(sl(w,2),6,10);if(w==='north'||w==='south'){b[0]=5;b[3]=11}else{b[2]=5;b[5]=11}return R('button',[b])}
+ if(/torch$/.test(n)){if(/wall_torch$/.test(n)){const w=OPP[p.facing||'north'],o={north:[0,-5],south:[0,5],east:[5,0],west:[-5,0]}[w];return R('torch',[[7+o[0],3,7+o[1],9+o[0],13,9+o[1]]])}return R('torch',[[7,0,7,9,10,9]])}
+ if(/^(soul_)?lantern$/.test(n)){const h=p.hanging==='true'?1:0;return R('lantern',[[5,h,5,11,7+h,11],[6,7+h,6,10,9+h,10]])}
+ if(n==='ladder'){return R('ladder',[sl(OPP[p.facing||'north'],2)])}
+ if(/rail$/.test(n))return R('rail',[[0,0,0,16,1,16]]);
+ if(/_hanging_sign$/.test(n)||/_wall_hanging_sign$/.test(n))return R('none',null);
+ if(/_wall_sign$/.test(n))return R('sign',[yb(sl(OPP[p.facing||'north'],2),4,12)]);
+ if(/_sign$/.test(n)){const r=(+p.rotation||0)%8,z=r<2||r>6;return R('sign',[z?[0,8,7,16,16,9]:[7,8,0,9,16,16],[7,0,7,9,8,9]])}
+ if(/_bed$/.test(n))return R('bed',[[0,3,0,16,9,16]]);
+ if(/^(chest|trapped_chest|ender_chest)$/.test(n))return R('chest',[[1,0,1,15,14,15]]);
+ if(n==='flower_pot')return R('pot',[[5,0,5,11,6,11]]);
+ if(n==='cake')return R('cake',[[1,0,1,15,8,15]]);
+ if(/^(end_rod|lightning_rod)$/.test(n))return R('rod',[[6,0,6,10,16,10]]);
+ return{k:'full',b:FULL,op:!NOPQ.test(n),sc:SCUL.test(n),ax:AXB.test(n)?(p.axis||'y'):'y'}}
+const WL=['facing','half','shape','type','open','hinge','axis','hanging','face','layers','north','east','south','west','up','rotation'];
+const sig=(n,p)=>n+'|'+WL.map(k=>p[k]===undefined?'':p[k]).join(',');
+function mk(n,p){const s=shp(n,p),t=[0,1,2].map(f=>T(n,f,p)),any=t.find(Boolean),bad=!any,M=['textures/blueprint/missing',0];
+ return{n,k:s.k,b:s.b,op:s.op,sc:s.sc,wd:s.wd,ax:s.ax||'y',bad,cp:'north' in p||'east' in p||'south' in p||'west' in p?{n:p.north,e:p.east,s:p.south,w:p.west,u:p.up}:null,t:bad?[M,M,M]:t.map(x=>x||any)}}
 
 /* ---------- 讀檔 ---------- */
 function prep(cells){let m=[1e9,1e9,1e9],M=[-1e9,-1e9,-1e9];
  for(const c of cells)for(let i=0;i<3;i++){if(c[i]<m[i])m[i]=c[i];if(c[i]>M[i])M[i]=c[i]}
- const[sx,sy,sz]=[0,1,2].map(i=>M[i]-m[i]+1),grid=new Int32Array(sx*sy*sz).fill(-1),recs=[],rm=new Map(),mats=new Map();let tot=0,bad=0;
+ const[sx,sy,sz]=[0,1,2].map(i=>M[i]-m[i]+1),grid=new Int32Array(sx*sy*sz).fill(-1),recs=[],rm=new Map(),mats=new Map();let tot=0,bad=0,nr=0;
  for(const[x,y,z,n,p]of cells){
-  const sk=/_slab$/.test(n)?(p.type||(p.top_slot_bit==1||p['minecraft:vertical_half']==='top'?'top':'bottom')):'',k=n+'|'+sk;
-  let ri=rm.get(k);if(ri===undefined){ri=recs.length;rm.set(k,ri);recs.push(mk(n,sk))}
-  grid[((x-m[0])*sy+y-m[1])*sz+z-m[2]]=ri;tot++;if(recs[ri].bad)bad++;
-  if(!(p.half==='upper'||p.part==='head'||p.upper_block_bit==1))mats.set(n,(mats.get(n)||0)+(sk==='double'?2:1))}
- return{sx,sy,sz,grid,recs,mats,tot,bad}}
-const TX='https://raw.githubusercontent.com/Mojang/bedrock-samples/main/resource_pack/';
+  if(!(p.half==='upper'||p.part==='head'||p.upper_block_bit==1||p._upper_block_bit==1))mats.set(n,(mats.get(n)||0)+(/_slab$/.test(n)&&p.type==='double'?2:1));
+  tot++;if(NR.test(n)){nr++;continue}
+  const k=sig(n,p);let ri=rm.get(k);if(ri===undefined){ri=recs.length;rm.set(k,ri);recs.push(mk(n,p))}
+  if(recs[ri].k==='none'){nr++;continue}
+  grid[((x-m[0])*sy+y-m[1])*sz+z-m[2]]=ri;if(recs[ri].bad)bad++}
+ return{sx,sy,sz,grid,recs,mats,tot,bad,nr}}
 function rows(m){return m.map(([n,c])=>{const t=T(n,2);return`<div class="mr"><span class="ic ${t?t[1]?'t':'':'x'}">${t?`<img src="${TX+t[0]}.png" loading="lazy" alt="" onerror="this.parentNode.classList.add('x');this.remove()">`:''}</span><span class="nm">${n}</span><b>x${c}  (${Math.floor(c/64)}組+${c%64})</b></div>`}).join('')||'（沒有方塊）'}
 const mtl=()=>{$('#mt').innerHTML=rows([...BP.mats].sort((a,b)=>b[1]-a[1]))};
-function xf(c){const k=+$('#rt').value,m=$('#mi').checked;return c.map(([x,y,z,n,p])=>{if(m)x=-x;for(let i=0;i<k;i++)[x,z]=[-z,x];return[x,y,z,n,p]})}
+// 旋轉／鏡像時，方塊的朝向、軸向、連接方向也要一起轉，階梯、門、柵欄才不會錯位
+function xp(p,k,m){const o={...p},rot=d=>{for(let i=0;i<k;i++)d=CW[d]||d;return d};
+ if(m){if(o.facing==='east')o.facing='west';else if(o.facing==='west')o.facing='east';
+  if(o.shape)o.shape=o.shape.replace(/left|right/,s=>s==='left'?'right':'left');if(o.hinge)o.hinge=o.hinge==='left'?'right':'left';
+  if('east' in o||'west' in o){const e=o.east,w=o.west;o.east=w;o.west=e}}
+ if(o.facing)o.facing=rot(o.facing);
+ if(k&1&&o.axis)o.axis=o.axis==='x'?'z':o.axis==='z'?'x':o.axis;
+ if('north' in o||'east' in o||'south' in o||'west' in o){const c={north:o.north,east:o.east,south:o.south,west:o.west};for(const d in c)delete o[d];for(const d in c)if(c[d]!==undefined)o[rot(d)]=c[d]}
+ if(o.rotation!==undefined){let r=+o.rotation;if(m)r=(16-r)%16;o.rotation=String((r+4*k)%16)}
+ return o}
+function xf(c){const k=+$('#rt').value,m=$('#mi').checked;return c.map(([x,y,z,n,p])=>{if(m)x=-x;for(let i=0;i<k;i++)[x,z]=[-z,x];return[x,y,z,n,k||m?xp(p,k,m):p]})}
 function ovl(){OV={};for(const l of $('#ov').value.split('\n')){const i=l.indexOf('=');if(i<1)continue;const p=l.slice(i+1).split(',').map(s=>s.trim()).filter(Boolean).map(s=>s.startsWith('textures/')?s:'textures/blocks/'+s);if(p.length)OV[l.slice(0,i).trim().replace(/^minecraft:/,'')]=p.length>=3?p.slice(0,3):[p[0],p[0],p[0]]}}
 async function load(f){
  try{let u=new Uint8Array(await f.arrayBuffer());
   if(u[0]===31&&u[1]===139)u=new Uint8Array(await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
   const le=/\.mcstructure$/i.test(f.name),r=nbt(u,le),S=r.Schematic||r,cells=[];
   if(le){const[sx,sy,sz]=r.size,ix=r.structure.block_indices[0],pl=r.structure.palette.default.block_palette;
-   for(let x=0;x<sx;x++)for(let y=0;y<sy;y++)for(let z=0;z<sz;z++){const k=ix[(x*sy+y)*sz+z];if(k<0)continue;const b=pl[k],s=b.states||{},n=norm(b.name,s);if(!SKIP.test(n))cells.push([x,y,z,n,s])}}
+   for(let x=0;x<sx;x++)for(let y=0;y<sy;y++)for(let z=0;z<sz;z++){const k=ix[(x*sy+y)*sz+z];if(k<0)continue;const b=pl[k],s=b.states||{},n=norm(b.name,s);if(!SKIP.test(n)){const pp=bprops(n,s);if(/^(minecraft:)?double_/.test(b.name))pp.type='double';cells.push([x,y,z,n,pp])}}}
   else if(r.palette&&r.blocks){const pl=r.palette.map(e=>[e.Name.replace(/^minecraft:/,''),e.Properties||{}]);
    for(const b of r.blocks){const[n,p]=pl[b.state];if(!SKIP.test(n))cells.push([b.pos[0],b.pos[1],b.pos[2],n,p])}}
   else if(S.Palette||(S.Blocks&&S.Blocks.Palette)){const B=S.Blocks||S,pe=B.Palette,da=B.Data||B.BlockData,W=S.Width,H=S.Height,L=S.Length,pl=[];
@@ -194,7 +301,7 @@ async function load(f){
   CELLS=cells;$('#rt').value=0;$('#mi').checked=false;BP=prep(xf(cells));$('#nm').value=f.name.replace(/\.[^.]+$/,'');show()}
  catch(e){alert('讀取失敗：'+e.message)}}
 function show(){ovl();const B=BP;$('#info').hidden=false;
- const S=[['尺寸',`${B.sx}×${B.sy}×${B.sz}`],['方塊總數',B.tot],['方塊種類',B.recs.length],['圖層數',B.sy]];
+ const S=[['尺寸',`${B.sx}×${B.sy}×${B.sz}`],['方塊總數',B.tot],['方塊種類',B.recs.length],['圖層數',B.sy],['略過小裝飾',B.nr]];
  $('#st').innerHTML=S.map(([a,b])=>`<div>${a}<b>${b}</b></div>`).join('')+`<div class="${B.bad?'bad':''}">錯誤紋理方塊<b>${B.bad}</b></div>`;
  mtl();
  const r=$('#rg');r.max=B.sy-1;r.value=0;draw()}
@@ -203,20 +310,46 @@ function draw(){const{sx,sy,sz,grid,recs}=BP,y=+$('#rg').value,s=Math.max(2,Math
  for(let x=0;x<sx;x++)for(let z=0;z<sz;z++){const ri=grid[(x*sy+y)*sz+z];if(ri<0)continue;let h=0;for(const ch of recs[ri].n)h=(h*31+ch.charCodeAt(0))%360;g.fillStyle=recs[ri].bad?'#f0f':`hsl(${h} 55% 55%)`;g.fillRect(x*s,z*s,s,s);lm.set(recs[ri].n,(lm.get(recs[ri].n)||0)+1)}
  $('#ly').textContent=$('#ln').textContent=y+1;$('#lm').innerHTML=rows([...lm].sort((a,b)=>b[1]-a[1]));$('#tip').textContent='點預覽圖可查看方塊名稱與座標'}
 
-/* ---------- 幾何（每種貼圖一組，每層一根骨骼） ---------- */
-function geo(){const{sx,sy,sz,grid,recs}=BP,G=new Map(),at=(x,y,z)=>x<0||y<0||z<0||x>=sx||y>=sy||z>=sz?-1:grid[(x*sy+y)*sz+z];
- // 模型座標：x 同世界，z 反向，故世界 +z(南) 面 = 模型 north
- const F=[['up',0],['down',1],['east',2,1,0],['west',2,-1,0],['north',2,0,1],['south',2,0,-1]];
+/* ---------- 幾何（每種貼圖一組、每層一根骨骼；面數太多會自動拆成多個幾何） ---------- */
+const FLIM=9000,INS=0.2,DN=['north','east','south','west'],DX={north:[0,-1],east:[1,0],south:[0,1],west:[-1,0]};
+// 世界方向 → [模型面名稱,dx,dy,dz]。模型 z 與世界 z 反向，且模型的 east/west 是以「實體右側」為準，
+// 所以盔甲座朝南(yaw=0)時：世界 +z(南)面＝模型 north、世界 +x(東)面＝模型 west、世界 -x(西)面＝模型 east
+const FD=[['up',0,1,0],['down',0,-1,0],['north',0,0,1],['south',0,0,-1],['west',1,0,0],['east',-1,0,0]];
+function geo(){const{sx,sy,sz,grid,recs}=BP,G=new Map(),parts=[],at=(x,y,z)=>x<0||y<0||z<0||x>=sx||y>=sy||z>=sz?null:(grid[(x*sy+y)*sz+z]<0?null:recs[grid[(x*sy+y)*sz+z]]);
+ const n3=v=>+v.toFixed(3);
+ // 柵欄／牆／玻璃片的連接：有方塊屬性就照屬性，沒有（基岩版）就看鄰居
+ const arms=(r,x,y,z)=>{const c=r.cp,o={};for(const d of DN){const v=c&&c[d[0]];
+   if(c&&v!==undefined)o[d]=v==='low'||v===true||v==='true'?1:v==='tall'?2:0;
+   else{const q=at(x+DX[d][0],y,z+DX[d][1]);o[d]=q&&(r.k==='fence'?(q.k==='fence'&&q.wd===r.wd)||q.k==='gate'||q.op:r.k==='wall'?(q.k==='wall'||q.k==='gate'||q.k==='pane'||q.op):(q.k==='pane'||q.k==='wall'||q.op))?1:0}}
+  return o};
+ const arm=(d,a0,a1,w0,w1,y0,y1)=>d==='east'?[a1,y0,w0,16,y1,w1]:d==='west'?[0,y0,w0,a0,y1,w1]:d==='south'?[w0,y0,a1,w1,y1,16]:[w0,y0,0,w1,y1,a0];
+ const cboxes=(r,x,y,z)=>{const a=arms(r,x,y,z),B=[],n=DN.filter(d=>a[d]).length;
+  if(r.k==='fence'){B.push([6,0,6,10,16,10]);for(const d of DN)if(a[d])B.push(arm(d,6,10,7,9,6,9),arm(d,6,10,7,9,12,15))}
+  else if(r.k==='wall'){const u=r.cp&&r.cp.u!==undefined?r.cp.u!=='false':!(n===2&&((a.north&&a.south)||(a.east&&a.west)));
+   if(u||!n)B.push([4,0,4,12,16,12]);for(const d of DN)if(a[d])B.push(arm(d,4,12,5,11,0,a[d]===2?16:14))}
+  else{B.push([7,0,7,9,16,9]);for(const d of DN)if(a[d])B.push(arm(d,7,9,7,9,0,16))}
+  return B};
+ const add=(p,t,y,cube,nf)=>{const k=p+'|'+t;let a=G.get(k);if(!a)G.set(k,a=[]);let g=a[a.length-1];
+  if(!g||g.nf+nf>FLIM){g={p,t,L:new Map(),nf:0};a.push(g);parts.push(g)}g.nf+=nf;let l=g.L.get(y);if(!l)g.L.set(y,l=[]);l.push(cube)};
  for(let x=0;x<sx;x++)for(let y=0;y<sy;y++)for(let z=0;z<sz;z++){const ri=grid[(x*sy+y)*sz+z];if(ri<0)continue;
-  const r=recs[ri],[a,b,c,w,h,d]=r.sh,full=r.sh===FULL,per=new Map();
-  for(const[nm,f,dx,dz]of F){
-   if(f===2&&full){const q=at(x+dx,y,z+dz);if(q>=0&&recs[q].op)continue}
-   const[p,t]=r.t[f],k=p+'|'+t;let g=G.get(k);if(!g)G.set(k,g={p,t,L:new Map()});
-   let e=per.get(k);if(!e)per.set(k,e=[g,[]]);
-   e[1].push(`"${nm}":{"uv":[0,0],"uv_size":[${nm==='up'||nm==='down'?w+','+d:nm==='east'||nm==='west'?d+','+h:w+','+h}]}`)}
-  for(const[g,u]of per.values()){if(!g.L.has(y))g.L.set(y,[]);
-   g.L.get(y).push(`{"origin":[${16*x+a-8},${16*y+b},${-16*z-c-d+8}],"size":[${w},${h},${d}],"inflate":-0.2,"uv":{${u.join(',')}}}`)}}
- return[...G.values()]}
+  const r=recs[ri],bx=r.b||cboxes(r,x,y,z);
+  for(const b of bx){const[x0,y0,z0,x1,y1,z1]=b,E=b.slice(),fs=[];
+   const face=d=>{const[nm,dx,dy,dz]=d,c=r.ax==='x'?(dx?0:2):r.ax==='z'?(dz?0:2):(dy>0?0:dy<0?1:2);let u,v,w,h;
+    if(dy){u=16-x1;w=x1-x0;v=16-z1;h=z1-z0}
+    else{v=16-y1;h=y1-y0;if(nm==='north'){u=x0;w=x1-x0}else if(nm==='south'){u=16-x1;w=x1-x0}else if(nm==='west'){u=16-z1;w=z1-z0}else{u=z0;w=z1-z0}}
+    return[r.t[c],`"${nm}":{"uv":[${n3(u)},${n3(v)}],"uv_size":[${n3(w)},${n3(h)}]}`]},hid=[];
+   for(const d of FD){const[nm,dx,dy,dz]=d,on=dx>0?x1===16:dx<0?x0===0:dy>0?y1===16:dy<0?y0===0:dz>0?z1===16:z0===0,q=on?at(x+dx,y+dy,z+dz):null;
+    if(q&&(q.op||(q.sc&&r.sc&&q.n===r.n)||(!r.b&&q.k===r.k))){hid.push(d);continue} // 被不透明方塊（或相鄰同種玻璃）蓋住的面不畫，並讓方塊在該側貼齊邊界避免縫隙
+    // 暴露的面往內縮一點點，真方塊蓋上去時才不會和藍圖閃爍（z-fighting）
+    if(dx>0&&x1-x0>1)E[3]-=INS;else if(dx<0&&x1-x0>1)E[0]+=INS;else if(dy>0&&y1-y0>1)E[4]-=INS;else if(dy<0&&y1-y0>1)E[1]+=INS;else if(dz>0&&z1-z0>1)E[5]-=INS;else if(dz<0&&z1-z0>1)E[2]+=INS;
+    fs.push(face(d))}
+   // 保險：若遊戲裡 east/west 的左右定義和預期相反，「只有一側被擋住」的牆端會出現破洞。這種情況把被擋住那一面也補上（藏在內部看不到，只多幾個面）
+   if(fs.length){const he=hid.filter(d=>d[1]!==0);if(he.length===1)fs.push(face(he[0]))}
+   if(!fs.length)continue;
+   const og=`"origin":[${n3(16*x+E[0]-8)},${n3(16*y+E[1])},${n3(-16*z-E[5]+8)}],"size":[${n3(E[3]-E[0])},${n3(E[4]-E[1])},${n3(E[5]-E[2])}]`,per=new Map();
+   for(const[t,s]of fs){const k=t[0]+'|'+t[1];let e=per.get(k);if(!e)per.set(k,e=[t,[]]);e[1].push(s)}
+   for(const[t,u]of per.values())add(t[0],t[1],y,`{${og},"uv":{${u.join(',')}}}`,u.length)}}
+ return parts}
 
 /* ---------- ZIP（deflate 由瀏覽器提供） ---------- */
 const CT=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
@@ -241,9 +374,14 @@ const showIcon=()=>{drawIcon($('#ip').getContext('2d'));$('#ir').disabled=!ICON}
 function parseVer(s){s=(s||'').trim()||'1.0.0';if(!/^\d{1,4}(\.\d{1,4}){0,2}$/.test(s))throw new Error('版本格式錯誤，請填像 1.0.0 的數字');const a=s.split('.').map(Number);while(a.length<3)a.push(0);return a}
 
 /* ---------- 產生資源包 ---------- */
+const BTN='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',b64u8=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 async function make(){
- const ver=parseVer($('#vr').value);ovl();BP=prep(xf(CELLS));const B=BP,{sx,sy,sz}=B,name=$('#nm').value.trim()||'Blueprint',G=geo(),VW=Math.max(sx,sz)+4,VH=sy+2,J=JSON.stringify;
- const gj='{"format_version":"1.12.0","minecraft:geometry":['+G.map((g,i)=>`{"description":{"identifier":"geometry.bp${i}","texture_width":16,"texture_height":16,"visible_bounds_width":${VW},"visible_bounds_height":${VH},"visible_bounds_offset":[${sx/2},${VH/2},${-sz/2}]},"bones":[${[...g.L].map(([y,c])=>`{"name":"l${y}","pivot":[0,0,0],"cubes":[${c.join(',')}]}`).join(',')}]}`).join(',')+']}';
+ const ver=parseVer($('#vr').value);ovl();BP=prep(xf(CELLS));const B=BP,{sx,sy,sz}=B,name=$('#nm').value.trim()||'Blueprint',G=geo(),VW=2*(Math.ceil(Math.hypot(sx,sz))+4),VH=sy+4,J=JSON.stringify;
+ if(!G.length)throw new Error('沒有可顯示的方塊（只有被略過的小裝飾？）');
+ // 動畫貼圖（水、岩漿、海燈籠…）是很多格直向疊起來，宣告實際高度才只會顯示第一格
+ const ts=new Map();if(FL)for(const g of G)if(FL.has(g.p)&&!ts.has(g.p))ts.set(g.p,await texSize(g.p));
+ const gj='{"format_version":"1.12.0","minecraft:geometry":['+G.map((g,i)=>{const s=ts.get(g.p),th=s?Math.max(16,Math.round(16*s[1]/s[0])):16;
+  return`{"description":{"identifier":"geometry.bp${i}","texture_width":16,"texture_height":${th},"visible_bounds_width":${VW},"visible_bounds_height":${VH},"visible_bounds_offset":[0,${sy/2},0]},"bones":[${[...g.L].map(([y,c])=>`{"name":"l${y}","pivot":[0,0,0],"cubes":[${c.join(',')}]}`).join(',')}]}`}).join(',')+']}';
  const all=Array.from({length:sy},(_,y)=>`query.get_name=='L${y+1}'`).join('||');
  const tex={default:'textures/entity/armor_stand',enchanted:'textures/misc/enchanted_item_glint'},geom={default:'geometry.armor_stand'},rc={},names=['controller.render.armor_stand'];
  const TC={g:{r:.48,g:.74,b:.42},l:{r:.36,g:.65,b:.22}};
@@ -257,11 +395,15 @@ async function make(){
  const rowsUi=[...B.mats].sort((a,b)=>b[1]-a[1]).map(([n,c],i)=>{const t=T(n,2),im={type:'image',texture:t?t[0]:'textures/blueprint/missing',size:[10,10]};if(t&&t[1]){const k=TC[t[1]];im.color=[k.r,k.g,k.b]}
   return{['r'+i]:{type:'stack_panel',orientation:'horizontal',size:['100%',12],controls:[{i:im},{t:{type:'label',text:`§7${n} §fx${c} §8(${Math.floor(c/64)}組+${c%64})`,font_scale_factor:0.9,offset:[3,1]}}]}}});
  const txt=`§b藍圖 ${sx}×${sy}×${sz}　共 ${B.tot} 個方塊\n§e分層：用命名牌把盔甲座命名為 L1~L${sy} 只顯示該層，不命名＝全部顯示\n§f所需材料：`;
+ // [藍圖] 按鈕：底下鋪一張石頭按鈕圖，整塊都是點擊範圍（原本只有文字，點不太到）
+ const bg=c=>({type:'image',texture:'textures/blueprint/btn',size:['100%','100%'],layer:1,...(c?{color:c}:{})}),
+  lb=t=>({type:'label',text:t,layer:3,shadow:true,anchor_from:'center',anchor_to:'center',text_alignment:'center'}),
+  st=(c,t)=>({type:'panel',size:['100%','100%'],controls:[{bg:bg(c)},{tx:lb(t)}]});
  const ui={namespace:'bp',
   root:{type:'panel',controls:[
-   {bp_tg:{type:'toggle',size:[46,12],anchor_from:'top_left',anchor_to:'top_left',offset:[4,34],toggle_name:'bp_tg',toggle_default_state:false,checked_control:'on',unchecked_control:'off',
+   {bp_tg:{type:'toggle',size:[72,20],anchor_from:'top_left',anchor_to:'top_left',offset:[4,34],layer:50,always_listen_to_input:true,toggle_name:'bp_tg',toggle_default_state:false,checked_control:'on',unchecked_control:'off',
     button_mappings:[{from_button_id:'button.menu_select',to_button_id:'button.menu_select',mapping_type:'pressed'}],
-    controls:[{on:{type:'label',text:'§e[藍圖]'}},{off:{type:'label',text:'§b[藍圖]'}}]}},
+    controls:[{on:st([1,.95,.6],'§e[藍圖]')},{off:st(null,'§b[藍圖]')}]}},
    {win:{type:'image',texture:'textures/ui/Black',alpha:0.85,size:['72%','74%'],anchor_from:'center',anchor_to:'center',layer:30,
     controls:[{'list@common.scrolling_panel':{'$show_background':false,'$scrolling_content':'bp.content',size:['100% - 4px','100% - 4px']}}],
     bindings:[{binding_type:'view',source_control_name:'bp_tg',source_property_name:'#toggle_state',target_property_name:'#visible'}]}}]},
@@ -273,9 +415,10 @@ async function make(){
   T8('ui/_ui_defs.json',{ui_defs:['ui/blueprint_ui.json']}),T8('ui/blueprint_ui.json',ui),
   T8('ui/hud_screen.json',{namespace:'hud',root_panel:{modifications:[{array_name:'controls',operation:'insert_back',value:[{'bp_root@bp.root':{}}]}]}}),
   {n:'pack_icon.png',d:await png(256,256,drawIcon)},
+  {n:'textures/blueprint/btn.png',d:b64u8(BTN)},
   {n:'textures/blueprint/missing.png',d:await png(16,16,g=>{g.fillStyle='#000';g.fillRect(0,0,16,16);g.fillStyle='#f800f8';g.fillRect(8,0,8,8);g.fillRect(0,8,8,8)})}];
- const blob=await zip(files);LAST={blob,name};
- return`完成：${G.length} 組貼圖、${(blob.size/1048576).toFixed(2)} MB，請按下方按鈕儲存`}
+ const blob=await zip(files);LAST={blob,name};const nf=G.reduce((a,g)=>a+g.nf,0);
+ return`完成：${G.length} 組幾何、${nf} 個面、${(blob.size/1048576).toFixed(2)} MB`+(B.bad?`（${B.bad} 個方塊找不到貼圖）`:'')+(nf>150000?'；面數很多，遊戲可能會變卡，建議分成較小的藍圖':'')+'，請按下方按鈕儲存'}
 let LAST=null;
 async function save(ext){const{blob,name}=LAST,fn=name+'.'+ext;
  for(const t of['application/zip','application/octet-stream']){const file=new File([blob],fn,{type:t});
@@ -305,6 +448,7 @@ $('#ir').onclick=()=>{ICON=null;showIcon()};
 try{$('#au').value=localStorage.getItem('bpau')||''}catch(e){}
 $('#au').oninput=()=>{try{localStorage.setItem('bpau',$('#au').value)}catch(e){}};
 showIcon();
+loadEX().then(ok=>{$('#exs').textContent=ok?`已核對官方貼圖清單（${EX.size} 張），找不到的貼圖會自動改試備用名稱`:'目前連不上官方貼圖清單，無法核對貼圖名稱（仍會使用內建對照）';if(CELLS){BP=prep(xf(CELLS));show()}});
 </script>
 </body>
 </html>
