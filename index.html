@@ -79,6 +79,13 @@ button.gh:disabled{cursor:default}
   <label class="f" for="ds">說明</label>
   <textarea id="ds" style="min-height:64px" placeholder="留空＝藍圖材質包 寬×高×深" spellcheck="false"></textarea>
  </details>
+ <details open><summary>遊戲內 [藍圖] 按鈕位置</summary>
+  <p class="sub">預設在畫面右上角、切換視角按鈕的左邊。位置不對或和其他按鈕重疊時，改這幾個數字再重新產生（單位是遊戲 UI 點數，不是像素；距邊緣越大，越往畫面中間移）。</p>
+  <div class="row"><div><label class="f" for="bs">靠哪一側</label><select id="bs"><option value="r">右上角</option><option value="l">左上角</option></select></div>
+   <div><label class="f" for="bx">距邊緣</label><input type="text" id="bx" value="36" inputmode="numeric" autocomplete="off"></div></div>
+  <div class="row"><div><label class="f" for="by">距上方</label><input type="text" id="by" value="4" inputmode="numeric" autocomplete="off"></div>
+   <div><label class="f" for="bw">按鈕寬度</label><input type="text" id="bw" value="72" inputmode="numeric" autocomplete="off"></div></div>
+ </details>
  <button id="go">產生材質包 (.mcpack)</button>
  <div class="sub" id="msg" role="status" style="margin-top:8px"></div>
  <div id="dl" hidden>
@@ -92,7 +99,7 @@ button.gh:disabled{cursor:default}
 <ol>
 <li>匯入藍圖後按「產生材質包」，開啟下載的 .mcpack 匯入遊戲，並在世界中啟用（排在最上層）。</li>
 <li>放置盔甲座，藍圖就會出現。藍圖的 (0,0,0) 角落＝盔甲座所在方塊，盔甲座朝南時方向與原圖相同。</li>
-<li>點遊戲畫面左上角石頭底圖的 <code>[藍圖]</code> 按鈕開啟所需材料清單。</li>
+<li>點遊戲畫面右上角、切換視角按鈕左邊石頭底圖的 <code>[藍圖]</code> 按鈕開啟所需材料清單（位置可在「遊戲內 [藍圖] 按鈕位置」調整）。</li>
 <li>分層顯示：用命名牌把盔甲座命名為 <code>L1</code>、<code>L2</code>… 只顯示該層；不命名＝顯示全部。</li>
 <li>階梯、半磚、門、活板門、柵欄、牆、玻璃片、梯子、火把等會依方塊屬性畫出對應形狀；草、花、樹苗、蠟燭等小型裝飾不會畫出來，但仍會列在材料清單。旋轉／鏡像時方塊朝向會一起轉。</li>
 <li>基岩版沒有的方塊會顯示錯誤紋理（洋紅黑格）。紋理直接引用遊戲內建資源，不內含任何官方素材。</li>
@@ -380,10 +387,19 @@ async function make(){
  if(!G.length)throw new Error('沒有可顯示的方塊（只有被略過的小裝飾？）');
  // 動畫貼圖（水、岩漿、海燈籠…）是很多格直向疊起來，宣告實際高度才只會顯示第一格
  const ts=new Map();if(FL)for(const g of G)if(FL.has(g.p)&&!ts.has(g.p))ts.set(g.p,await texSize(g.p));
- const gj='{"format_version":"1.12.0","minecraft:geometry":['+G.map((g,i)=>{const s=ts.get(g.p),th=s?Math.max(16,Math.round(16*s[1]/s[0])):16;
-  return`{"description":{"identifier":"geometry.bp${i}","texture_width":16,"texture_height":${th},"visible_bounds_width":${VW},"visible_bounds_height":${VH},"visible_bounds_offset":[0,${sy/2},0]},"bones":[${[...g.L].map(([y,c])=>`{"name":"l${y}","pivot":[0,0,0],"cubes":[${c.join(',')}]}`).join(',')}]}`}).join(',')+']}';
+ // 轉動視角時整張藍圖消失＝遊戲把「盔甲座本體的小範圍」當成可見範圍去裁切。
+ // 對策：(1) 每個幾何都宣告涵蓋整張藍圖的 visible_bounds；(2) 另外放一個「錨點」幾何（內容完全隱藏、範圍同樣巨大），
+ // 並讓它同時是實體的 default 幾何、檔案裡的第一個幾何、第一個 render controller 使用的幾何，
+ // 這樣不論遊戲取「預設幾何」「第一個幾何」還是「第一個控制器」來算範圍，拿到的都是整張藍圖的範圍。
+ const bnd=`"visible_bounds_width":${VW},"visible_bounds_height":${VH},"visible_bounds_offset":[0,${sy/2},0]`;
+ const anchor=`{"description":{"identifier":"geometry.bp_anchor","texture_width":16,"texture_height":16,${bnd}},"bones":[{"name":"a","pivot":[0,0,0],"cubes":[{"origin":[0,0,0],"size":[1,1,1],"uv":{"north":{"uv":[0,0],"uv_size":[1,1]}}}]}]}`;
+ const gj='{"format_version":"1.12.0","minecraft:geometry":['+anchor+','+G.map((g,i)=>{const s=ts.get(g.p),th=s?Math.max(16,Math.round(16*s[1]/s[0])):16;
+  return`{"description":{"identifier":"geometry.bp${i}","texture_width":16,"texture_height":${th},${bnd}},"bones":[${[...g.L].map(([y,c])=>`{"name":"l${y}","pivot":[0,0,0],"cubes":[${c.join(',')}]}`).join(',')}]}`}).join(',')+']}';
  const all=Array.from({length:sy},(_,y)=>`query.get_name=='L${y+1}'`).join('||');
- const tex={default:'textures/entity/armor_stand',enchanted:'textures/misc/enchanted_item_glint'},geom={default:'geometry.armor_stand'},rc={},names=['controller.render.armor_stand'];
+ const tex={default:'textures/entity/armor_stand',enchanted:'textures/misc/enchanted_item_glint'},geom={default:'geometry.bp_anchor',stand:'geometry.armor_stand'},
+  rc={'controller.render.bp_anchor':{geometry:'Geometry.default',materials:[{'*':'Material.bp'}],textures:['Texture.default'],part_visibility:[{'*':false}]},
+   'controller.render.bp_stand':{geometry:'Geometry.stand',materials:[{'*':'Material.default'}],textures:['Texture.default']}},
+  names=['controller.render.bp_anchor','controller.render.bp_stand'];
  const TC={g:{r:.48,g:.74,b:.42},l:{r:.36,g:.65,b:.22}};
  G.forEach((g,i)=>{tex['t'+i]=g.p;geom['g'+i]='geometry.bp'+i;const n='controller.render.bp'+i;names.push(n);
   rc[n]={geometry:'Geometry.g'+i,materials:[{'*':'Material.bp'}],textures:['Texture.t'+i],
@@ -399,14 +415,22 @@ async function make(){
  const bg=c=>({type:'image',texture:'textures/blueprint/btn',size:['100%','100%'],layer:1,...(c?{color:c}:{})}),
   lb=t=>({type:'label',text:t,layer:3,shadow:true,anchor_from:'center',anchor_to:'center',text_alignment:'center'}),
   st=(c,t)=>({type:'panel',size:['100%','100%'],controls:[{bg:bg(c)},{tx:lb(t)}]});
+ // 按鈕位置（遊戲 UI 點數）：預設右上角、切換視角按鈕的左邊；可在頁面上調整
+ const num=(id,d,lo,hi)=>{const v=parseFloat($('#'+id).value);return Math.min(hi,Math.max(lo,isFinite(v)?v:d))};
+ const BW=Math.round(num('bw',72,36,160)),BH=Math.round(BW*20/72),BX=num('bx',36,0,500),BY=num('by',4,0,300),RT=$('#bs').value!=='l',AN=RT?'top_right':'top_left';
+ $('#bx').value=BX;$('#by').value=BY;$('#bw').value=BW;try{localStorage.setItem('bpbtn',J({bs:$('#bs').value,bx:BX,by:BY,bw:BW}))}catch(e){}
+ // 按鈕沿用遊戲內建的 toggle 範本（和設定畫面的開關同一套，觸控一定能點），只把外觀換成石頭底圖；
+ // 狀態（開／關）一律由內建 toggle 自己記，視窗再用 #toggle_state 綁定顯示／隱藏
  const ui={namespace:'bp',
   root:{type:'panel',controls:[
-   {bp_tg:{type:'toggle',size:[72,20],anchor_from:'top_left',anchor_to:'top_left',offset:[4,34],layer:50,always_listen_to_input:true,toggle_name:'bp_tg',toggle_default_state:false,checked_control:'on',unchecked_control:'off',
-    button_mappings:[{from_button_id:'button.menu_select',to_button_id:'button.menu_select',mapping_type:'pressed'}],
-    controls:[{on:st([1,.95,.6],'§e[藍圖]')},{off:st(null,'§b[藍圖]')}]}},
+   {'bp_btn@common_toggles.light_ui_toggle':{size:[BW,BH],anchor_from:AN,anchor_to:AN,offset:[RT?-BX:BX,BY],layer:50,
+    '$toggle_view_binding_name':'bp_tg','$template_toggle':'bp.bp_tgl'}},
    {win:{type:'image',texture:'textures/ui/Black',alpha:0.85,size:['72%','74%'],anchor_from:'center',anchor_to:'center',layer:30,
     controls:[{'list@common.scrolling_panel':{'$show_background':false,'$scrolling_content':'bp.content',size:['100% - 4px','100% - 4px']}}],
     bindings:[{binding_type:'view',source_control_name:'bp_tg',source_property_name:'#toggle_state',target_property_name:'#visible'}]}}]},
+  'bp_tgl@common_toggles.light_template_toggle':{size:['100%','100%'],prevent_touch_input:true,'$toggle_name':'bp_tg',
+   '$checked_control':'bp.btn_on','$unchecked_control':'bp.btn_off','$checked_hover_control':'bp.btn_on','$unchecked_hover_control':'bp.btn_off'},
+  btn_on:st([1,.95,.6],'§e[藍圖]'),btn_off:st(null,'§b[藍圖]'),
   content:{type:'stack_panel',orientation:'vertical',size:['100%','default'],controls:[{h:{type:'label',text:txt,size:['100%','default'],font_scale_factor:0.9}},...rowsUi]}};
  const T8=(n,o)=>({n,d:enc.encode(typeof o==='string'?o:J(o))});
  const au=$('#au').value.split(/[,，、;；]+/).map(s=>s.trim()).filter(Boolean),desc=$('#ds').value.trim()||`藍圖材質包 ${sx}×${sy}×${sz}`;
@@ -448,6 +472,7 @@ $('#ir').onclick=()=>{ICON=null;showIcon()};
 try{$('#au').value=localStorage.getItem('bpau')||''}catch(e){}
 $('#au').oninput=()=>{try{localStorage.setItem('bpau',$('#au').value)}catch(e){}};
 showIcon();
+try{const o=JSON.parse(localStorage.getItem('bpbtn')||'null');if(o)for(const k of['bs','bx','by','bw'])if(o[k]!==undefined&&o[k]!==null)$('#'+k).value=o[k]}catch(e){}
 loadEX().then(ok=>{$('#exs').textContent=ok?`已核對官方貼圖清單（${EX.size} 張），找不到的貼圖會自動改試備用名稱`:'目前連不上官方貼圖清單，無法核對貼圖名稱（仍會使用內建對照）';if(CELLS){BP=prep(xf(CELLS));show()}});
 </script>
 </body>
