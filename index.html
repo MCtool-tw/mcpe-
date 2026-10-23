@@ -100,6 +100,19 @@ button.gh:disabled{cursor:default}
   <button id="sz" style="background:var(--cy)">另存為 .zip（存檔後改副檔名為 .mcpack）</button>
   <p class="sub">沒有跳出儲存視窗時，請用 Safari／Chrome 開啟這個 HTML 檔再操作。</p>
  </div>
+
+ <details open><summary>創造放置包（行為包，另外下載）</summary>
+  <p class="sub">另外產生一個「行為包」：創造模式、且有指令權限的玩家，把<b>指令方塊</b>放進盔甲座手上，就會在藍圖的位置直接生成整棟建築。盔甲座命名牌填 <code>L3</code> 只放第 3 層；盔甲座的朝向、上面「藍圖顯示方式」的原點、以及匯入後的旋轉／鏡像都會一起套用。</p>
+  <label class="f"><input type="checkbox" id="prm" checked> 放置完成後，取走盔甲座手上的指令方塊</label>
+  <label class="f"><input type="checkbox" id="pao"> 只放在空氣／液體處（不覆蓋原有方塊）</label>
+  <button id="go2">產生創造放置包 (.mcpack)</button>
+  <div class="sub" id="msg2" role="status" style="margin-top:8px"></div>
+  <div id="dl2" hidden>
+   <button id="sv2">儲存／分享 創造放置包</button>
+   <button id="sz2" style="background:var(--cy)">另存為 .zip（存檔後改副檔名為 .mcpack）</button>
+  </div>
+  <p class="hint">需要較新的基岩版（腳本 API 2.1.0 以上）。箱子內容、告示牌文字、旗幟與床的顏色等「方塊實體資料」不會複製；水／岩漿與空氣不會放。找不到對應基岩版方塊的會略過，並在聊天室列出名稱。</p>
+ </details>
 </div>
 
 <div class="c"><b>使用方式</b>
@@ -111,10 +124,197 @@ button.gh:disabled{cursor:default}
 <li>階梯、半磚、門、活板門、柵欄、牆、玻璃片、梯子、火把等會依方塊屬性畫出對應形狀；草、花、樹苗、蠟燭等小型裝飾不會畫出來，但仍會列在材料清單。旋轉／鏡像時方塊朝向會一起轉。</li>
 <li>基岩版沒有的方塊會顯示錯誤紋理（洋紅黑格）。紋理直接引用遊戲內建資源，不內含任何官方素材。</li>
 <li>盔甲座沒放正（轉了角度）或站在半磚上，藍圖會自動對齊最近的 90° 方向與整數高度。</li>
+<li>創造放置：另外下載「創造放置包」（行為包）並啟用。創造模式且有指令權限的玩家，把指令方塊放進盔甲座手上，就會在藍圖位置生成建築；要在盔甲座旁放藍圖資源包預覽時，兩個包可同時啟用。</li>
 <li>控制與版面做法參考 HoloPrint（SuperLlama88888，CC BY-NC-SA 4.0）。</li>
 <li>匯入後可旋轉／鏡像藍圖；點預覽圖可查方塊名稱；洋紅黑格可在「自訂紋理對照」填入基岩版貼圖路徑修正。</li>
 </ol></div>
 </div>
+
+<script type="text/plain" id="placejs">
+// 藍圖創造放置（行為包腳本）
+// 在創造模式、且有指令權限的玩家，把指令方塊放進盔甲座手上時，
+// 會在該盔甲座的藍圖位置放出整棟建築。盔甲座命名牌填 L<n> 則只放第 n 層。
+import { world, system, GameMode, CommandPermissionLevel, EquipmentSlot, BlockPermutation } from '@minecraft/server';
+import D from './data.js';
+
+const CMD = new Set(['minecraft:command_block', 'minecraft:repeating_command_block', 'minecraft:chain_command_block']);
+const STAND = 'minecraft:armor_stand';
+const SLOTS = [['Mainhand', 'slot.weapon.mainhand'], ['Offhand', 'slot.weapon.offhand']];
+const busy = new Set();
+const permCache = new Map();
+
+const say = (p, m) => { try { p.sendMessage(m); } catch (e) { } };
+
+// ---------- 權限 ----------
+function isCreative(p) {
+  try { const g = p.getGameMode(); return g === GameMode.Creative || String(g).toLowerCase() === 'creative'; } catch (e) { return false; }
+}
+function hasCmdPerm(p) {
+  try { return p.commandPermissionLevel !== CommandPermissionLevel.Any; } catch (e) { }
+  try { return !!p.isOp(); } catch (e) { }
+  return false;
+}
+
+// ---------- 盔甲座手上的指令方塊 ----------
+function heldSlot(stand) {
+  try {
+    const eq = stand.getComponent('minecraft:equippable');
+    if (eq) {
+      for (const [s] of SLOTS) {
+        let it; try { it = eq.getEquipment(EquipmentSlot[s]); } catch (e) { it = undefined; }
+        if (it && CMD.has(it.typeId)) return s;
+      }
+      return null;
+    }
+  } catch (e) { }
+  // 備用：用選取器檢查
+  for (const [s, loc] of SLOTS) for (const id of CMD) {
+    try { const r = stand.runCommand(`testfor @s[hasitem={item=${id.replace('minecraft:', '')},location=${loc}}]`); if (r && r.successCount > 0) return s; } catch (e) { }
+  }
+  return null;
+}
+function clearHand(stand, s) {
+  try {
+    const eq = stand.getComponent('minecraft:equippable');
+    if (eq) { eq.setEquipment(EquipmentSlot[s], undefined); return; }
+  } catch (e) { }
+  try { stand.runCommand(`replaceitem entity @s ${SLOTS.find(x => x[0] === s)[1]} 0 air`); } catch (e) { }
+}
+
+// ---------- 候選方塊 → 方塊狀態（只套用該方塊真的有的狀態） ----------
+function resolvePerm(cands) {
+  const key = JSON.stringify(cands);
+  if (permCache.has(key)) return permCache.get(key);
+  let res = null;
+  for (const c of cands) {
+    const name = c[0].includes(':') ? c[0] : 'minecraft:' + c[0];
+    try {
+      let perm = BlockPermutation.resolve(name);
+      const st = c[1];
+      if (st) for (const k in st) {
+        const v = st[k];
+        try { perm = perm.withState(k, v); } catch (e) {
+          // 結構檔裡的布林狀態常被讀成 0／1：改用 true／false 再試一次
+          if (typeof v === 'number') { try { perm = perm.withState(k, v !== 0); } catch (e2) { } }
+        }
+      }
+      res = perm; break;
+    } catch (e) { }
+  }
+  permCache.set(key, res);
+  return res;
+}
+
+// ---------- 放置 ----------
+function startBuild(player, stand, slot) {
+  const id = stand.id;
+  if (busy.has(id)) return;
+  busy.add(id);
+  const dim = stand.dimension, loc = stand.location;
+  const bx = Math.floor(loc.x), by = Math.floor(loc.y + 0.001), bz = Math.floor(loc.z);
+  // 與資源包相同的對齊規則：盔甲座轉向後，藍圖對齊 floor(轉角/90)×90°（順時針）
+  const yaw = stand.getRotation().y, k = ((Math.floor((yaw + 1e-3) / 90) % 4) + 4) % 4;
+  const nm = /^L(\d+)$/.exec(stand.nameTag || ''), only = nm ? +nm[1] - 1 : -1;
+  let hr = { min: -64, max: 320 }; try { hr = dim.heightRange; } catch (e) { }
+  const st = { ok: 0, kept: 0, oob: 0, bad: new Map(), unloaded: 0 };
+  let tick = null, tickName = null;
+
+  function* runs() {
+    const r = D.r;
+    for (let i = 0; i < r.length; i += 5) {
+      const x = r[i], y = r[i + 1], z0 = r[i + 2], len = r[i + 3], idx = r[i + 4];
+      if (only >= 0 && y !== only) continue;
+      for (let j = 0; j < len; j++) {
+        let dx = x - D.cx, dz = z0 + j - D.cz;
+        for (let q = 0; q < k; q++) { const t = dx; dx = -dz; dz = t; }
+        yield [bx + dx, by + y, bz + dz, idx];
+      }
+    }
+  }
+  function put(x, y, z, idx) {
+    if (y < hr.min || y >= hr.max) { st.oob++; return 0; }
+    let b;
+    try { b = dim.getBlock({ x, y, z }); } catch (e) { return 1; }
+    if (!b) return 1;
+    try {
+      if (D.onlyAir && !(b.isAir || b.isLiquid)) { st.kept++; return 0; }
+      const pe = D.p[idx], cands = pe.length === 1 ? pe[0] : pe[k];
+      const perm = resolvePerm(cands);
+      if (!perm) { const n = cands[0][0]; st.bad.set(n, (st.bad.get(n) || 0) + 1); return 0; }
+      b.setPermutation(perm); st.ok++; return 0;
+    } catch (e) { return 1; }
+  }
+  let retry = [], attempts = 0;
+  function* pass(it) {
+    let n = 0; const miss = [];
+    for (const [x, y, z, idx] of it) {
+      if (put(x, y, z, idx)) miss.push(x, y, z, idx);
+      if (++n % 96 === 0) yield;
+    }
+    retry = miss;
+  }
+  function finish() {
+    if (tickName) { try { dim.runCommand(`tickingarea remove ${tickName}`); } catch (e) { } }
+    st.unloaded = retry.length / 4;
+    if (D.rm) clearHand(stand, slot);
+    busy.delete(id);
+    let msg = `§a藍圖已放置：${st.ok} 個方塊`;
+    if (only >= 0) msg += `（只放第 ${only + 1} 層）`;
+    say(player, msg);
+    if (st.kept) say(player, `§7有 ${st.kept} 格已有方塊，依設定未覆蓋`);
+    if (st.oob) say(player, `§e有 ${st.oob} 格超出世界高度範圍，已略過`);
+    if (st.unloaded) say(player, `§e有 ${st.unloaded} 格所在區塊沒有載入，未放置（靠近一點再試一次）`);
+    if (st.bad.size) {
+      const top = [...st.bad].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([n, c]) => `${n}×${c}`).join('、');
+      say(player, `§e找不到對應的基岩版方塊而略過：${top}${st.bad.size > 6 ? ' …' : ''}`);
+    }
+    try { player.playSound('random.levelup'); } catch (e) { }
+  }
+  function again() {
+    const list = retry; retry = [];
+    function* it() { for (let i = 0; i < list.length; i += 4) yield [list[i], list[i + 1], list[i + 2], list[i + 3]]; }
+    system.runJob((function* () {
+      yield* pass(it());
+      attempts++;
+      if (retry.length && attempts < 10) system.runTimeout(again, 20); else finish();
+    })());
+  }
+  say(player, `§b開始放置藍圖 ${D.sx}×${D.sy}×${D.sz}${k ? `（轉 ${k * 90}°）` : ''}…`);
+  system.runJob((function* () {
+    yield* pass(runs());
+    if (retry.length) {
+      // 有些區塊還沒載入：臨時加一個常駐載入區，載入完成後再補放
+      const xs = [], zs = [];
+      for (let i = 0; i < retry.length; i += 4) { xs.push(retry[i]); zs.push(retry[i + 2]); }
+      tickName = 'bp_' + (Date.now() % 1000000);
+      try { dim.runCommand(`tickingarea add ${Math.min(...xs)} 0 ${Math.min(...zs)} ${Math.max(...xs)} 0 ${Math.max(...zs)} ${tickName} true`); } catch (e) { tickName = null; }
+      system.runTimeout(again, 20);
+    } else finish();
+  })());
+}
+
+// ---------- 觸發：玩家對盔甲座右鍵、盔甲座手上有指令方塊 ----------
+world.afterEvents.playerInteractWithEntity.subscribe(ev => {
+  const stand = ev.target, p = ev.player;
+  let tid; try { tid = stand.typeId; } catch (e) { return; }
+  if (tid !== STAND) return;
+  const held = (ev.beforeItemStack && ev.beforeItemStack.typeId) || (ev.itemStack && ev.itemStack.typeId) || '';
+  if (!CMD.has(held)) return;
+  if (!isCreative(p) || !hasCmdPerm(p)) {
+    say(p, '§c需要「創造模式」且具有指令權限的玩家，才能用指令方塊放置藍圖。');
+    return;
+  }
+  let tries = 0;
+  const check = () => {
+    tries++;
+    let slot = null;
+    try { stand.location; slot = heldSlot(stand); } catch (e) { return; }
+    if (slot) startBuild(p, stand, slot);
+    else if (tries < 8) system.runTimeout(check, 2);
+  };
+  system.runTimeout(check, 1);
+});
+</script>
 
 <script>
 const $=s=>document.querySelector(s),enc=new TextEncoder();let BP=null,CELLS=null,SC=1,OV={};
@@ -297,14 +497,14 @@ function xp(p,k,m){const o={...p},rot=d=>{for(let i=0;i<k;i++)d=CW[d]||d;return 
  if('north' in o||'east' in o||'south' in o||'west' in o){const c={north:o.north,east:o.east,south:o.south,west:o.west};for(const d in c)delete o[d];for(const d in c)if(c[d]!==undefined)o[rot(d)]=c[d]}
  if(o.rotation!==undefined){let r=+o.rotation;if(m)r=(16-r)%16;o.rotation=String((r+4*k)%16)}
  return o}
-function xf(c){const k=+$('#rt').value,m=$('#mi').checked;return c.map(([x,y,z,n,p])=>{if(m)x=-x;for(let i=0;i<k;i++)[x,z]=[-z,x];return[x,y,z,n,k||m?xp(p,k,m):p]})}
+function xf(c){const k=+$('#rt').value,m=$('#mi').checked;return c.map(([x,y,z,n,p,raw])=>{if(m)x=-x;for(let i=0;i<k;i++)[x,z]=[-z,x];return[x,y,z,n,k||m?xp(p,k,m):p,raw]})}
 function ovl(){OV={};for(const l of $('#ov').value.split('\n')){const i=l.indexOf('=');if(i<1)continue;const p=l.slice(i+1).split(',').map(s=>s.trim()).filter(Boolean).map(s=>s.startsWith('textures/')?s:'textures/blocks/'+s);if(p.length)OV[l.slice(0,i).trim().replace(/^minecraft:/,'')]=p.length>=3?p.slice(0,3):[p[0],p[0],p[0]]}}
 async function load(f){
  try{let u=new Uint8Array(await f.arrayBuffer());
   if(u[0]===31&&u[1]===139)u=new Uint8Array(await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
   const le=/\.mcstructure$/i.test(f.name),r=nbt(u,le),S=r.Schematic||r,cells=[];
   if(le){const[sx,sy,sz]=r.size,ix=r.structure.block_indices[0],pl=r.structure.palette.default.block_palette;
-   for(let x=0;x<sx;x++)for(let y=0;y<sy;y++)for(let z=0;z<sz;z++){const k=ix[(x*sy+y)*sz+z];if(k<0)continue;const b=pl[k],s=b.states||{},n=norm(b.name,s);if(!SKIP.test(n)){const pp=bprops(n,s);if(/^(minecraft:)?double_/.test(b.name))pp.type='double';cells.push([x,y,z,n,pp])}}}
+   for(let x=0;x<sx;x++)for(let y=0;y<sy;y++)for(let z=0;z<sz;z++){const k=ix[(x*sy+y)*sz+z];if(k<0)continue;const b=pl[k],s=b.states||{},n=norm(b.name,s);if(!SKIP.test(n)){const pp=bprops(n,s);if(/^(minecraft:)?double_/.test(b.name))pp.type='double';cells.push([x,y,z,n,pp,{n:b.name,s}])}}}
   else if(r.palette&&r.blocks){const pl=r.palette.map(e=>[e.Name.replace(/^minecraft:/,''),e.Properties||{}]);
    for(const b of r.blocks){const[n,p]=pl[b.state];if(!SKIP.test(n))cells.push([b.pos[0],b.pos[1],b.pos[2],n,p])}}
   else if(S.Palette||(S.Blocks&&S.Blocks.Palette)){const B=S.Blocks||S,pe=B.Palette,da=B.Data||B.BlockData,W=S.Width,H=S.Height,L=S.Length,pl=[];
@@ -533,10 +733,172 @@ async function make(){
  const blob=await zip(files);LAST={blob,name};const nf=G.reduce((a,g)=>a+g.nf,0);
  return`完成：${G.length} 組幾何、${nf} 個面、${(blob.size/1048576).toFixed(2)} MB`+(B.bad?`（${B.bad} 個方塊找不到貼圖）`:'')+(nf>150000?'；面數很多，遊戲可能會變卡，建議分成較小的藍圖':'')+'，請按下方按鈕儲存'}
 let LAST=null;
-async function save(ext){const{blob,name}=LAST,fn=name+'.'+ext;
+async function save(ext,w){const{blob,name}=w===2?LAST2:LAST,fn=name+'.'+ext;
  for(const t of['application/zip','application/octet-stream']){const file=new File([blob],fn,{type:t});
   try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:fn});return}}catch(e){if(e.name==='AbortError')return}}
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([blob],{type:'application/octet-stream'}));a.download=fn;document.body.appendChild(a);a.click();a.remove()}
+
+/*BEGIN-CONV*/
+/* ---------- 創造放置：方塊轉成基岩版「候選名稱＋狀態」 ----------
+   每個方塊產生一串候選 [名稱, 狀態]；遊戲內腳本會依序嘗試，並且只套用該方塊真的有的狀態，
+   所以名稱或狀態猜錯時不會整個壞掉，只會退到下一個候選（都不行就略過並回報）。 */
+const BE_FD={down:0,up:1,north:2,south:3,west:4,east:5},BE_STAIR={east:0,west:1,south:2,north:3},BE_DOOR={east:0,south:1,west:2,north:3},BE_DIR={south:0,west:1,north:2,east:3};
+const BE_CARD=['north','east','south','west'],BE_WOOD6=['oak','spruce','birch','jungle','acacia','dark_oak'];
+const ALT={dirt_path:['grass_path'],cobweb:['web'],lily_pad:['waterlily'],melon:['melon_block'],terracotta:['hardened_clay'],bricks:['brick_block'],nether_bricks:['nether_brick'],red_nether_bricks:['red_nether_brick'],end_stone_bricks:['end_bricks'],snow_block:['snow'],
+ chain:['iron_chain'],iron_chain:['chain'],short_grass:['tallgrass'],jack_o_lantern:['lit_pumpkin'],nether_quartz_ore:['quartz_ore'],slime_block:['slime'],magma_block:['magma'],note_block:['noteblock'],sugar_cane:['reeds'],beetroots:['beetroot'],nether_portal:['portal'],
+ oak_trapdoor:['trapdoor'],oak_door:['wooden_door'],oak_fence:['fence'],oak_fence_gate:['fence_gate'],oak_button:['wooden_button'],oak_pressure_plate:['wooden_pressure_plate'],powered_rail:['golden_rail'],
+ stone_bricks:['stonebrick'],mossy_stone_bricks:['stonebrick'],cracked_stone_bricks:['stonebrick'],chiseled_stone_bricks:['stonebrick'],
+ };
+const STB={stone_bricks:'default',mossy_stone_bricks:'mossy',cracked_stone_bricks:'cracked',chiseled_stone_bricks:'chiseled'};
+const SLAB_LEG={smooth_stone:'smooth_stone',cobblestone:'cobblestone',brick:'brick',stone_brick:'stone_brick',quartz:'quartz',nether_brick:'nether_brick',sandstone:'sandstone'};
+const FLW={poppy:'poppy',blue_orchid:'orchid',allium:'allium',azure_bluet:'houstonia',red_tulip:'tulip_red',orange_tulip:'tulip_orange',white_tulip:'tulip_white',pink_tulip:'tulip_pink',oxeye_daisy:'oxeye',cornflower:'cornflower',lily_of_the_valley:'lily_of_the_valley'};
+const DPL={sunflower:'sunflower',lilac:'syringa',rose_bush:'rose',peony:'paeonia',tall_grass:'grass',large_fern:'fern'};
+const RAILS={north_south:0,east_west:1,ascending_east:2,ascending_west:3,ascending_north:4,ascending_south:5,south_east:6,south_west:7,north_west:8,north_east:9};
+function convertJ(n0,p0){
+ const n=String(n0).replace(/^minecraft:/,''),p={};for(const k in p0)if(k[0]!=='_')p[k]=p0[k];
+ const out=[],A=(nm,st)=>out.push(st&&Object.keys(st).length?[nm,st]:[nm]),t=k=>p[k]===true||p[k]==='true',f=p.facing;let m;
+ const st={};
+ // 通用狀態：只有該方塊真的有這個狀態才會被套用
+ if(p.axis)st.pillar_axis=p.axis;
+ if(f){if(BE_CARD.includes(f))st['minecraft:cardinal_direction']=f;if(f in BE_FD)st.facing_direction=BE_FD[f]}
+ if(p.powered!==undefined)st.powered_bit=t('powered');if(p.open!==undefined)st.open_bit=t('open');if(p.hanging!==undefined)st.hanging=t('hanging');
+ if(p.age!==undefined){st.age=+p.age;st.growth=+p.age}
+ if(p.rotation!==undefined)st.ground_sign_direction=+p.rotation%16;
+ if(p.moisture!==undefined)st.moisturized_amount=+p.moisture;
+ if(p.bites!==undefined)st.bite_counter=+p.bites;
+ if(p.half==='upper'||p.half==='lower')st.upper_block_bit=p.half==='upper';
+ if(p.part!==undefined)st.head_piece_bit=p.part==='head';
+ if(p.occupied!==undefined)st.occupied_bit=t('occupied');
+ if(/_leaves$/.test(n)){st.persistent_bit=true;st.update_bit=false}
+ const lit=t('lit');
+ // ----- 階梯 -----
+ if(/_stairs$/.test(n)){const s2={weirdo_direction:BE_STAIR[f||'north'],upside_down_bit:p.half==='top'};
+  const b=n.replace(/_stairs$/,'');
+  if(b==='stone')A('normal_stone_stairs',s2);else if(b==='cobblestone')A('stone_stairs',s2);else if(b==='end_stone_brick')A('end_brick_stairs',s2);
+  A(n,s2);return out}
+ // ----- 半磚 -----
+ if(/_slab$/.test(n)){const b=n.replace(/_slab$/,''),ty=p.type||'bottom',vh={'minecraft:vertical_half':ty==='top'?'top':'bottom'};
+  if(ty==='double'){A(b+'_double_slab',vh);A('double_'+b+'_slab',vh);
+   if(SLAB_LEG[b])A('double_stone_block_slab',{stone_slab_type:SLAB_LEG[b]});
+   if(BE_WOOD6.includes(b))A('double_wooden_slab',{wood_type:b==='dark_oak'?'dark_oak':b});
+   return out}
+  if(b==='stone')A('normal_stone_slab',vh);
+  A(n,vh);
+  if(SLAB_LEG[b])A('stone_block_slab',{stone_slab_type:SLAB_LEG[b],'minecraft:vertical_half':vh['minecraft:vertical_half']});
+  if(b==='stone')A('stone_block_slab4',{stone_slab_type_4:'stone','minecraft:vertical_half':vh['minecraft:vertical_half']});
+  if(BE_WOOD6.includes(b))A('wooden_slab',{wood_type:b,'minecraft:vertical_half':vh['minecraft:vertical_half']});
+  return out}
+ // ----- 門（兩半都是獨立方塊） -----
+ if(/_door$/.test(n)){const s2={direction:BE_DOOR[f||'north'],open_bit:t('open'),door_hinge_bit:p.hinge==='right',upper_block_bit:p.half==='upper'};
+  A(n,s2);if(ALT[n])for(const a of ALT[n])A(a,s2);return out}
+ // ----- 活板門 -----
+ if(/_trapdoor$/.test(n)){const O={north:'south',south:'north',east:'west',west:'east'},s2={direction:BE_STAIR[O[f||'north']],open_bit:t('open'),upside_down_bit:p.half==='top'};
+  A(n,s2);if(ALT[n])for(const a of ALT[n])A(a,s2);return out}
+ // ----- 柵欄門 -----
+ if(/_fence_gate$/.test(n)){const s2={direction:BE_DIR[f||'north'],open_bit:t('open'),in_wall_bit:t('in_wall')};A(n,s2);if(ALT[n])for(const a of ALT[n])A(a,s2);return out}
+ // ----- 牆（連接狀態有儲存） -----
+ if(/_wall$/.test(n)){const s2={wall_post_bit:p.up!==undefined?t('up'):true},cv=v=>v==='tall'?'tall':v==='low'||v==='true'?'short':'none';
+  for(const d of['north','east','south','west'])s2['wall_connection_type_'+d]=cv(p[d]);A(n,s2);return out}
+ // ----- 按鈕 -----
+ if(/_button$/.test(n)){const fd=p.face==='floor'?1:p.face==='ceiling'?0:BE_FD[f||'north'];const s2={facing_direction:fd,button_pressed_bit:t('powered')};
+  A(n,s2);if(ALT[n])for(const a of ALT[n])A(a,s2);return out}
+ if(n==='lever'){const w=p.face==='wall',ld=w?(f||'north'):(p.face==='floor'?'up_':'down_')+((f==='north'||f==='south')?'north_south':'east_west');A('lever',{lever_direction:ld,open_bit:t('powered')});return out}
+ // ----- 火把 -----
+ if(/torch$/.test(n)){const wall=/wall_torch$/.test(n),base=n.replace('wall_','');
+  const s2={torch_facing_direction:wall?(f||'north'):'top'};
+  if(base==='redstone_torch'){A('redstone_torch',s2);A('unlit_redstone_torch',s2)}else A(base,s2);return out}
+ // ----- 鐵軌 -----
+ if(/rail$/.test(n)){const sh=RAILS[p.shape]??0,s2={rail_direction:sh,rail_data_bit:t('powered')};A(n,s2);if(ALT[n])for(const a of ALT[n])A(a,s2);return out}
+ // ----- 展開的花／雙格植物（新舊名稱） -----
+ if(FLW[n]){A(n,st);A('red_flower',{flower_type:FLW[n]});return out}
+ if(DPL[n]){const s2={upper_block_bit:p.half==='upper'};A(n,s2);A('double_plant',{double_plant_type:DPL[n],upper_block_bit:p.half==='upper'});return out}
+ if(n==='dandelion'){A('dandelion');A('yellow_flower');return out}
+ if(n==='short_grass'||n==='grass'){A('short_grass');A('tallgrass',{tall_grass_type:'tall'});return out}
+ if(n==='fern'){A('fern');A('tallgrass',{tall_grass_type:'fern'});return out}
+ // ----- 雪層 -----
+ if(n==='snow'){A('snow_layer',{height:Math.max(0,Math.min(7,(+p.layers||1)-1))});return out}
+ if(n==='sea_pickle'){A(n,{cluster_count:Math.max(0,Math.min(3,(+p.pickles||1)-1)),dead_bit:false});return out}
+ if(/(^|_)candle$/.test(n)){A(n,{candles:Math.max(0,Math.min(3,(+p.candles||1)-1)),lit});return out}
+ if(n==='vine'){let b=0;if(t('south'))b|=1;if(t('west'))b|=2;if(t('north'))b|=4;if(t('east'))b|=8;A(n,{vine_direction_bits:b||1});return out}
+ if(n==='glow_lichen'){let b=0;if(t('down'))b|=1;if(t('up'))b|=2;if(t('north'))b|=4;if(t('south'))b|=8;if(t('west'))b|=16;if(t('east'))b|=32;A(n,{multi_face_direction_bits:b||1});return out}
+ // ----- 床／告示牌（顏色與文字存在方塊實體資料裡，無法由腳本設定） -----
+ if(/_bed$/.test(n)){A('bed',{direction:BE_DIR[f||'north'],head_piece_bit:p.part==='head',occupied_bit:false});return out}
+ if(/_wall_sign$/.test(n)){const w=n.replace(/_wall_sign$/,'');A(w==='oak'?'wall_sign':w+'_wall_sign',{facing_direction:BE_FD[f||'north']});A(w+'_wall_sign',{facing_direction:BE_FD[f||'north']});return out}
+ if(/_sign$/.test(n)&&!/hanging/.test(n)){const w=n.replace(/_sign$/,'');A(w==='oak'?'standing_sign':w+'_standing_sign',{ground_sign_direction:+p.rotation||0});A(w+'_standing_sign',{ground_sign_direction:+p.rotation||0});return out}
+ // ----- 會亮／熄的方塊 -----
+ if(/^(furnace|blast_furnace|smoker)$/.test(n)){A(lit?'lit_'+n:n,st);A(n,st);return out}
+ if(n==='redstone_lamp'){A(lit?'lit_redstone_lamp':n,st);A(n,st);return out}
+ if(n==='redstone_ore'||n==='deepslate_redstone_ore'){A(lit?'lit_'+n:n,st);A(n,st);return out}
+ if(n==='campfire'||n==='soul_campfire'){st.extinguished=!lit;A(n,st);return out}
+ if(/^(chipped|damaged)_anvil$/.test(n)){st.damage=n[0]==='c'?'slightly_damaged':'very_damaged';A('anvil',st);return out}
+ if(n==='repeater'){A('unpowered_repeater',{direction:BE_DIR[f||'north'],repeater_delay:Math.max(0,(+p.delay||1)-1)});A('repeater',{direction:BE_DIR[f||'north'],repeater_delay:Math.max(0,(+p.delay||1)-1)});return out}
+ if(n==='hopper'){st.toggle_bit=p.enabled==='false';A(n,st);return out}
+ if(/^potted_/.test(n)){A('flower_pot');return out}
+ if(n==='redstone_wire'){A('redstone_wire');return out}
+ if(/^(piston|sticky_piston)$/.test(n)){A(n,st);return out}
+ // ----- 一般方塊：先試原名，再試舊名／別名 -----
+ A(n,st);
+ if(STB[n]){A('stonebrick',{stone_brick_type:STB[n]})}
+ if(ALT[n])for(const a of ALT[n])if(!STB[n])A(a,st);
+ if(m=n.match(/^(oak|spruce|birch|jungle|acacia|dark_oak)_(planks|sapling|log|wood|leaves)$/)){const w=m[1],k=m[2];
+  if(k==='planks')A('planks',{wood_type:w});
+  else if(k==='sapling')A('sapling',{sapling_type:w,age_bit:false});
+  else if(k==='log')A(/^(acacia|dark_oak)$/.test(w)?'log2':'log',{...(/^(acacia|dark_oak)$/.test(w)?{new_log_type:w}:{old_log_type:w}),pillar_axis:p.axis||'y'});
+  else if(k==='wood')A('wood',{wood_type:w,stripped_bit:false,pillar_axis:p.axis||'y'});
+  else A(/^(acacia|dark_oak)$/.test(w)?'leaves2':'leaves',{...(/^(acacia|dark_oak)$/.test(w)?{new_leaf_type:w}:{old_leaf_type:w}),persistent_bit:true})}
+ if(n==='sponge'||n==='wet_sponge')A('sponge',{sponge_type:n==='wet_sponge'?'wet':'dry'});
+ return out}
+/* 基岩版原生狀態：旋轉（順時針 k×90°）／東西鏡像 */
+function rotBE(name,s0,k,mir){const s={...s0},CWm={north:'east',east:'south',south:'west',west:'north'},MI={east:'west',west:'east'},
+  rs=d=>{if(mir&&MI[d])d=MI[d];for(let i=0;i<k;i++)d=CWm[d]||d;return d},nm=String(name).replace(/^minecraft:/,'');
+ if(!k&&!mir)return s;
+ if(typeof s['minecraft:cardinal_direction']==='string')s['minecraft:cardinal_direction']=rs(s['minecraft:cardinal_direction']);
+ if(typeof s.torch_facing_direction==='string')s.torch_facing_direction=rs(s.torch_facing_direction);
+ if(typeof s.facing_direction==='number'&&s.facing_direction>=2){const names={2:'north',3:'south',4:'west',5:'east'};const d=rs(names[s.facing_direction]);s.facing_direction=BE_FD[d]}
+ if(typeof s.weirdo_direction==='number'){const nm2=['east','west','south','north'];s.weirdo_direction=BE_STAIR[rs(nm2[s.weirdo_direction&3])]}
+ if(typeof s.direction==='number'){const d=s.direction&3;
+  if(/_door$|^wooden_door$|^[a-z_]*door$/.test(nm)&&!/trapdoor/.test(nm)){const a=['east','south','west','north'];s.direction=BE_DOOR[rs(a[d])];if(mir&&s.door_hinge_bit!==undefined)s.door_hinge_bit=!s.door_hinge_bit}
+  else if(/trapdoor$/.test(nm)){const a=['east','west','south','north'];s.direction=BE_STAIR[rs(a[d])]}
+  else{const a=['south','west','north','east'];s.direction=BE_DIR[rs(a[d])]}}
+ if(typeof s.pillar_axis==='string'&&k&1&&s.pillar_axis!=='y')s.pillar_axis=s.pillar_axis==='x'?'z':'x';
+ if(typeof s.ground_sign_direction==='number'){let r=s.ground_sign_direction;if(mir)r=(16-r)%16;s.ground_sign_direction=(r+4*k)%16}
+ if(typeof s.lever_direction==='string'){const v=s.lever_direction;if(/^(north|south|east|west)$/.test(v))s.lever_direction=rs(v);else if(k&1)s.lever_direction=v.replace(/(east_west|north_south)/,x=>x==='east_west'?'north_south':'east_west')}
+ if(s.wall_connection_type_north!==undefined){const o={},ks=['north','east','south','west'];for(const d of ks)o[d]=s['wall_connection_type_'+d];for(const d of ks)s['wall_connection_type_'+rs(d)]=o[d]}
+ return s}
+/*END-CONV*/
+
+/* ---------- 創造放置包（行為包）：把藍圖資料連同放置腳本打成另一個 .mcpack ---------- */
+let LAST2=null;
+function placeData(){
+ const k1=+$('#rt').value,mir=$('#mi').checked,T=xf(CELLS);
+ let mn=[1e9,1e9,1e9],mx=[-1e9,-1e9,-1e9];
+ for(const c of T)for(let i=0;i<3;i++){if(c[i]<mn[i])mn[i]=c[i];if(c[i]>mx[i])mx[i]=c[i]}
+ const sx=mx[0]-mn[0]+1,sy=mx[1]-mn[1]+1,sz=mx[2]-mn[2]+1,mid=$('#og').value==='m',cx=mid?Math.floor(sx/2):0,cz=mid?Math.floor(sz/2):0;
+ const ents=[],pm=new Map(),grid=new Int32Array(sx*sy*sz);
+ for(const[x,y,z,n,p,raw]of T){
+  const key=raw?'B'+raw.n+JSON.stringify(raw.s)+'|'+n:'J'+n+JSON.stringify(p);let i=pm.get(key);
+  if(i===undefined){i=ents.length;pm.set(key,i);ents.push({n,p,raw})}
+  grid[((x-mn[0])*sy+y-mn[1])*sz+z-mn[2]]=i+1}
+ // 每種方塊 4 組候選（對應盔甲座朝 0／90／180／270°，方塊朝向會跟著轉）
+ const pal=ents.map(e=>{const v=[];
+  for(let k2=0;k2<4;k2++){let c;const pj=xp(e.p,k2,false),fb=convertJ(e.n,pj);
+   if(e.raw){const nm=e.raw.n.replace(/^minecraft:/,'');c=[[nm,rotBE(nm,e.raw.s,(k1+k2)%4,mir)],...fb]}else c=fb;
+   if(!c.length)c=[[e.n]];v.push(c)}
+  const j0=JSON.stringify(v[0]);return v.every(c=>JSON.stringify(c)===j0)?[v[0]]:v});
+ // 沿 z 方向做連續段壓縮：[x,y,z起點,長度,方塊編號]…
+ const r=[];let cnt=0;
+ for(let x=0;x<sx;x++)for(let y=0;y<sy;y++){let z=0;while(z<sz){const g=grid[(x*sy+y)*sz+z];if(!g){z++;continue}let e=z;while(e+1<sz&&grid[(x*sy+y)*sz+e+1]===g)e++;r.push(x,y,z,e-z+1,g-1);cnt+=e-z+1;z=e+1}}
+ return{sx,sy,sz,cx,cz,pal,r,cnt}}
+async function makePlace(){
+ const ver=parseVer($('#vr').value),name=$('#nm').value.trim()||'Blueprint',J=JSON.stringify,e8=o=>enc.encode(typeof o==='string'?o:J(o));
+ const d=placeData(),rm=$('#prm').checked,oa=$('#pao').checked;
+ const data='export default '+J({v:1,name,sx:d.sx,sy:d.sy,sz:d.sz,cx:d.cx,cz:d.cz,rm,onlyAir:oa,p:d.pal,r:d.r})+';\n';
+ const au=$('#au').value.split(/[,，、;；]+/).map(s=>s.trim()).filter(Boolean);
+ const mf={format_version:2,header:{name:name+' 創造放置',description:`創造放置 ${d.sx}×${d.sy}×${d.sz}：創造模式且有指令權限的玩家，把指令方塊放進盔甲座手上，就會在藍圖位置生成建築`,uuid:crypto.randomUUID(),version:ver,min_engine_version:[1,21,100]},
+  modules:[{type:'script',language:'javascript',uuid:crypto.randomUUID(),entry:'scripts/main.js',version:ver}],dependencies:[{module_name:'@minecraft/server',version:'2.1.0'}],...(au.length?{metadata:{authors:au}}:{})};
+ const files=[{n:'manifest.json',d:e8(mf)},{n:'scripts/main.js',d:e8($('#placejs').textContent)},{n:'scripts/data.js',d:e8(data)},{n:'pack_icon.png',d:await png(256,256,drawIcon)}];
+ const blob=await zip(files);LAST2={blob,name:name+'_創造放置'};
+ return`完成：${d.cnt} 個方塊、${d.pal.length} 種方塊、${(blob.size/1048576).toFixed(2)} MB。請匯入後在世界中啟用這個「行為包」（和藍圖資源包可同時啟用）`}
 
 $('#fi').onchange=e=>e.target.files[0]&&load(e.target.files[0]);
 const dz=$('#dz');dz.ondragover=e=>e.preventDefault();dz.ondrop=e=>{e.preventDefault();e.dataTransfer.files[0]&&load(e.dataTransfer.files[0])};
@@ -553,6 +915,9 @@ $('#cp').onclick=async()=>{const b=$('#cp');try{await navigator.clipboard.writeT
 $('#go').onclick=async()=>{const b=$('#go');b.disabled=true;$('#msg').textContent='產生中…';await new Promise(r=>setTimeout(r,30));
  try{$('#msg').textContent=await make();$('#dl').hidden=false}catch(e){$('#msg').textContent='失敗：'+e.message}b.disabled=false};
 $('#sv').onclick=()=>save('mcpack');$('#sz').onclick=()=>save('zip');
+$('#sv2').onclick=()=>save('mcpack',2);$('#sz2').onclick=()=>save('zip',2);
+$('#go2').onclick=async()=>{const b=$('#go2');b.disabled=true;$('#msg2').textContent='產生中…';await new Promise(r=>setTimeout(r,30));
+ try{$('#msg2').textContent=await makePlace();$('#dl2').hidden=false}catch(e){$('#msg2').textContent='失敗：'+e.message}b.disabled=false};
 $('#ii').onchange=e=>{const f=e.target.files[0];if(!f)return;const u=URL.createObjectURL(f),im=new Image();
  im.onload=()=>{const w=im.naturalWidth||256,h=im.naturalHeight||256,m=Math.min(w,h),c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');g.imageSmoothingEnabled=m>128;g.imageSmoothingQuality='high';g.drawImage(im,(w-m)/2,(h-m)/2,m,m,0,0,256,256);URL.revokeObjectURL(u);ICON=c;showIcon()};
  im.onerror=()=>{URL.revokeObjectURL(u);$('#msg').textContent='圖示讀取失敗，請換一張 PNG／JPG 圖片'};
