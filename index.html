@@ -81,9 +81,11 @@ button.gh:disabled{cursor:default}
  </details>
  <details open><summary>藍圖顯示方式</summary>
   <div class="row"><div><label class="f" for="om">外觀</label><select id="om"><option value="h">半透明（全息）</option><option value="s">不透明</option></select></div>
-   <div><label class="f" for="op">預設透明度</label><select id="op"><option value="0">40%</option><option value="1">50%</option><option value="2">60%</option><option value="3">70%</option><option value="4" selected>80%</option><option value="5">90%</option><option value="6">100%</option></select></div></div>
+   <div><label class="f" for="op">預設不透明度</label><select id="op"><option value="0">40%（最透明）</option><option value="1">50%</option><option value="2">60%</option><option value="3">70%</option><option value="4" selected>80%</option><option value="5">90%</option><option value="6">100%（完全不透明）</option></select></div></div>
+  <label class="f"><input type="checkbox" id="bk" checked> 遊戲內可調透明度（建議勾選）</label>
+  <p class="hint">勾選後，產生時會從官方範例庫下載用到的貼圖，另存成 7 種不透明度（40%～100%）放進資源包，遊戲內 [變淡]／[變濃] 改成直接換貼圖，最穩定。需要連網、封包會大一些，且內含官方貼圖的副本（請只供自己使用，勿轉發或販售）。取消勾選則不下載、不內含官方貼圖，但透明度只靠顏色設定，部分版本可能沒有效果。</p>
   <label class="f" for="og">原點（藍圖放在盔甲座的哪裡）</label><select id="og"><option value="c">角落：盔甲座＝藍圖西北下角那一格</option><option value="m">中央：盔甲座＝藍圖平面正中央</option></select>
-  <p class="sub">遊戲內 [控制] 面板可隨時調整透明度、圖層與位置；這裡只是預設值。</p>
+  <p class="sub">遊戲內 [控制] 面板可隨時用 [變淡]／[變濃] 調整不透明度（40%～100%）、調整圖層與位置；這裡只是預設值。</p>
  </details>
  <details open><summary>遊戲內 [藍圖]／[控制] 按鈕位置</summary>
   <p class="sub">預設在畫面右上角、切換視角按鈕的左邊。位置不對或和其他按鈕重疊時，改這幾個數字再重新產生（單位是遊戲 UI 點數，不是像素；距邊緣越大，越往畫面中間移）。</p>
@@ -119,10 +121,10 @@ button.gh:disabled{cursor:default}
 <ol>
 <li>匯入藍圖後按「產生材質包」，開啟下載的 .mcpack 匯入遊戲，並在世界中啟用（排在最上層）。</li>
 <li>放置盔甲座，藍圖就會出現。藍圖的 (0,0,0) 角落＝盔甲座所在方塊，盔甲座朝南時方向與原圖相同。</li>
-<li>遊戲畫面右上角（切換視角按鈕左邊）有兩個按鈕：<code>[藍圖]</code> 開／關可捲動的材料清單（滿 64 個會顯示「N = S組+R」）；<code>[控制]</code> 開／關控制面板：顯示、圖層 ±、模式（只顯示單層／顯示該層以下）、透明度 ±、東西南北上下微調位置、重置。電腦版：按住 Tab 看材料清單、↑／↓ 切換圖層。按鈕位置可在「遊戲內 [藍圖]／[控制] 按鈕位置」調整。</li>
+<li>遊戲畫面右上角（切換視角按鈕左邊）有兩個按鈕：<code>[藍圖]</code> 開／關可捲動的材料清單（滿 64 個會顯示「N = S組+R」）；<code>[控制]</code> 開／關控制面板：顯示、圖層 ±、模式（只顯示單層／顯示該層以下）、變淡／變濃（調整透明度：變淡＝更透明、變濃＝更不透明）、東西南北上下微調位置、重置。電腦版：按住 Tab 看材料清單、↑／↓ 切換圖層。按鈕位置可在「遊戲內 [藍圖]／[控制] 按鈕位置」調整。</li>
 <li>分層顯示：用 [控制] 的「層-／層+」，或用命名牌把盔甲座命名為 <code>L1</code>、<code>L2</code>… 只顯示該層；不命名＝顯示全部。</li>
 <li>階梯、半磚、門、活板門、柵欄、牆、玻璃片、梯子、火把等會依方塊屬性畫出對應形狀；草、花、樹苗、蠟燭等小型裝飾不會畫出來，但仍會列在材料清單。旋轉／鏡像時方塊朝向會一起轉。</li>
-<li>基岩版沒有的方塊會顯示錯誤紋理（洋紅黑格）。紋理直接引用遊戲內建資源，不內含任何官方素材。</li>
+<li>基岩版沒有的方塊會顯示錯誤紋理（洋紅黑格）。預設紋理直接引用遊戲內建資源，不內含任何官方素材；若勾選「遊戲內可調透明度」，資源包會內含從官方範例庫下載、調整過透明度的貼圖副本（只供個人使用，請勿轉發或販售）。</li>
 <li>盔甲座沒放正（轉了角度）或站在半磚上，藍圖會自動對齊最近的 90° 方向與整數高度。</li>
 <li>創造放置：另外下載「創造放置包」（行為包）並啟用。創造模式且有指令權限的玩家，把指令方塊放進盔甲座手上，就會在藍圖位置生成建築；要在盔甲座旁放藍圖資源包預覽時，兩個包可同時啟用。</li>
 <li>控制與版面做法參考 HoloPrint（SuperLlama88888，CC BY-NC-SA 4.0）。</li>
@@ -602,6 +604,52 @@ function drawIcon(g){const S=256;g.clearRect(0,0,S,S);
 const showIcon=()=>{drawIcon($('#ip').getContext('2d'));$('#ir').disabled=!ICON};
 function parseVer(s){s=(s||'').trim()||'1.0.0';if(!/^\d{1,4}(\.\d{1,4}){0,2}$/.test(s))throw new Error('版本格式錯誤，請填像 1.0.0 的數字');const a=s.split('.').map(Number);while(a.length<3)a.push(0);return a}
 
+/* ---------- 可調透明度：把貼圖另存成 7 種不透明度（40%～100%） ----------
+   只靠 render controller 的 color.a 來改透明度，在盔甲座上不一定會生效；貼圖本身的 alpha 最可靠。
+   所以勾選「遊戲內可調透明度」時：從官方範例庫下載用到的貼圖，另存成 7 種不透明度放進資源包，
+   遊戲內按 [變淡]／[變濃] 就是換貼圖。下載不到的貼圖會退回舊做法。 */
+const TC={g:{r:.48,g:.74,b:.42},l:{r:.36,g:.65,b:.22}};
+const BASES=[TX,'https://cdn.jsdelivr.net/gh/Mojang/bedrock-samples@main/resource_pack/'],IMGP=new Map();let IMGOK=0,IMGBAD=0;
+function loadImg(u){return new Promise(r=>{const im=new Image(),t=setTimeout(()=>{im.onload=im.onerror=null;r(null)},8000);im.crossOrigin='anonymous';im.onload=()=>{clearTimeout(t);r(im)};im.onerror=()=>{clearTimeout(t);r(null)};im.src=u})}
+async function texPixels0(p){
+ if(p==='textures/blueprint/missing'){const d=new Uint8ClampedArray(16*16*4);for(let y=0;y<16;y++)for(let x=0;x<16;x++){const m=(x>=8)!==(y>=8),o=(y*16+x)*4;d[o]=m?248:0;d[o+2]=m?248:0;d[o+3]=255}return{w:16,h:16,d}}
+ if(IMGBAD>=6&&!IMGOK)return null; // 連續失敗又沒成功過 → 判定連不上，不要每張都等逾時
+ let im=null;
+ for(const b of BASES.slice()){im=await loadImg(b+p+'.png');if(im){if(b!==BASES[0])BASES.reverse();break}}
+ let res=null;
+ if(im){try{const w=im.naturalWidth,h=im.naturalHeight;if(w&&h){
+   // 動畫貼圖是很多格直向疊起來，只取第一格；超過 64 像素的縮小，避免檔案太大
+   const fh=Math.min(h,w),S=Math.min(w,64),oh=Math.max(1,Math.round(fh*S/w)),c=document.createElement('canvas');c.width=S;c.height=oh;
+   const g=c.getContext('2d',{willReadFrequently:true});g.imageSmoothingEnabled=false;g.drawImage(im,0,0,w,fh,0,0,S,oh);res={w:S,h:oh,d:g.getImageData(0,0,S,oh).data}}}catch(e){res=null}}
+ if(res)IMGOK++;else IMGBAD++;
+ return res}
+function texPixels(p){if(!IMGP.has(p)){const pr=texPixels0(p);IMGP.set(p,pr);pr.then(r=>{if(!r)IMGP.delete(p)})}return IMGP.get(p)}
+async function pool(a,n,f){let i=0;await Promise.all(Array.from({length:Math.min(n,a.length)},async()=>{while(i<a.length)await f(a[i++])}))}
+// PNG 編碼（不經過 canvas，避免半透明像素因預乘 alpha 而失真）
+async function zlibC(u8){try{const w=new CompressionStream('deflate'),wr=w.writable.getWriter();wr.write(u8);wr.close();return new Uint8Array(await new Response(w.readable).arrayBuffer())}catch(e){return null}}
+function adler32(u){let a=1,b=0;for(let i=0;i<u.length;i++){a=(a+u[i])%65521;b=(b+a)%65521}return((b<<16)|a)>>>0}
+function zlibStored(u){const o=[0x78,0x01];for(let i=0;i<u.length;i+=65535){const n=Math.min(65535,u.length-i);o.push(i+n>=u.length?1:0,n&255,n>>8,~n&255,(~n>>8)&255);for(let j=0;j<n;j++)o.push(u[i+j])}const a=adler32(u);o.push(a>>>24,(a>>16)&255,(a>>8)&255,a&255);return Uint8Array.from(o)}
+async function pngEnc(w,h,rgba){
+ const raw=new Uint8Array((w*4+1)*h);for(let y=0;y<h;y++)raw.set(rgba.subarray(y*w*4,(y+1)*w*4),y*(w*4+1)+1);
+ const z=(await zlibC(raw))||zlibStored(raw);
+ const chunk=(t,d)=>{const b=new Uint8Array(12+d.length),v=new DataView(b.buffer);v.setUint32(0,d.length);for(let i=0;i<4;i++)b[4+i]=t.charCodeAt(i);b.set(d,8);v.setUint32(8+d.length,crc(b.subarray(4,8+d.length)));return b};
+ const ih=new Uint8Array(13),iv=new DataView(ih.buffer);iv.setUint32(0,w);iv.setUint32(4,h);ih[8]=8;ih[9]=6;
+ const parts=[Uint8Array.of(137,80,78,71,13,10,26,10),chunk('IHDR',ih),chunk('IDAT',z),chunk('IEND',new Uint8Array(0))],o=new Uint8Array(parts.reduce((s,p)=>s+p.length,0));
+ let q=0;for(const p of parts){o.set(p,q);q+=p.length}return o}
+// 回傳 Map：「貼圖路徑|染色」→ {ok,id,files[7]}；files[k] 是不透明度 (40+10k)% 的 PNG（染色已直接算進像素）
+async function bakeTex(G,say){
+ IMGOK=0;IMGBAD=0;
+ const ks=new Map();for(const g of G){const k=g.p+'|'+(g.t||0);if(!ks.has(k))ks.set(k,{p:g.p,t:g.t||0,id:ks.size})}
+ const out=new Map(),list=[...ks.entries()];let done=0;
+ await pool(list,6,async([k,v])=>{const px=await texPixels(v.p);
+  if(px){const tc=v.t?TC[v.t]:null,files=[];
+   for(let lv=0;lv<7;lv++){const a=(40+10*lv)/100,d=new Uint8Array(px.d.length);
+    for(let i=0;i<d.length;i+=4){d[i]=tc?Math.round(px.d[i]*tc.r):px.d[i];d[i+1]=tc?Math.round(px.d[i+1]*tc.g):px.d[i+1];d[i+2]=tc?Math.round(px.d[i+2]*tc.b):px.d[i+2];d[i+3]=Math.round(px.d[i+3]*a)}
+    files.push(await pngEnc(px.w,px.h,d))}
+   out.set(k,{ok:true,id:v.id,files})}else out.set(k,{ok:false,id:v.id});
+  say(`下載貼圖 ${++done}/${list.length}…`)});
+ return out}
+
 /* ---------- 產生資源包 ---------- */
 // 控制機制（HUD 按鈕 → 盔甲座）與 HUD 結構參考 HoloPrint（SuperLlama88888，CC BY-NC-SA 4.0）的做法：
 // 按鈕在 UI 裡「按下時」會顯示一個手持特定物品的隱形盔甲座，盔甲座的腳本偵測到物品後把動作代號寫進全域暫存變數 t.*，
@@ -613,13 +661,13 @@ const ACTS=[[1,1,'stone','grass_block'],[2,3,'dirt'],[3,4,'cobblestone'],[4,7,'b
 const AID={toggle:1,opUp:3,opDn:4,layUp:7,layDn:8,mode:9,east:13,west:14,up:15,down:16,south:17,north:18,reset:19};
 const ptName=n=>n.replace(/^minecraft:/,'').split('_').map(w=>w?w[0].toUpperCase()+w.slice(1):w).join(' ');
 function entityScripts(H,op0){
- const ia=ACTS.map(([c,,...ns])=>`q.is_item_name_any('slot.weapon.offhand',${ns.map(n=>`'minecraft:${n}'`).join(',')})?{t.bp_ia=${c};};`).join('');
+ const ia=ACTS.map(([c,,...ns])=>`q.is_item_name_any('slot.weapon.offhand',0,${ns.map(n=>`'minecraft:${n}'`).join(',')})?{t.bp_ia=${c};};`).join('');
  // 在 UI 裡渲染的盔甲座：讀手持物品決定動作，遞增全域計數器
  const inUi=`q.is_in_ui?{t.bp_ia=-1;${ia}t.bp_ia==-1?{return 0;};t.bp_act=t.bp_ia;(t.bp_uic??-1)!=-1?{v.bp.uic=t.bp_uic;};v.bp.uic=v.bp.uic+1;t.bp_uic=v.bp.uic;return 0;};`;
  // 世界裡的盔甲座：發現計數器變了 → 執行動作（第一次按下立即執行，按住 8 tick 後每 3 tick 重複）
  const poll=`t.bp_uic=t.bp_uic??0;t.bp_fire=-1;t.bp_uic!=v.bp.uic&&t.bp_uic>0?{v.bp.uic=t.bp_uic;t.bp_dt=q.time_stamp-v.bp.lut;t.bp_go=0;!v.bp.was&&t.bp_dt>=1?{t.bp_go=1;v.bp.hs=q.time_stamp;};v.bp.was&&q.time_stamp-v.bp.hs>=8&&t.bp_dt>=3?{t.bp_go=1;};t.bp_go?{t.bp_fire=t.bp_act;v.bp.lut=q.time_stamp;};v.bp.was=1;}:{v.bp.was=0;};`;
  const run=`t.bp_fire==1?{v.bp.on=1-v.bp.on;};v.bp.on?{`+
-  `t.bp_fire==2?{v.bp.op=v.bp.op+1;v.bp.op>6?{v.bp.op=0;};};t.bp_fire==3?{v.bp.op=v.bp.op-1;v.bp.op<0?{v.bp.op=6;};};`+
+  `t.bp_fire==2?{v.bp.op=math.min(6,v.bp.op+1);};t.bp_fire==3?{v.bp.op=math.max(0,v.bp.op-1);};`+
   `t.bp_lc=0;t.bp_fire==4?{v.bp.layer=v.bp.layer+1;t.bp_lc=1;};t.bp_fire==5?{v.bp.layer=v.bp.layer-1;t.bp_lc=1;};t.bp_fire==6?{v.bp.mode=1-v.bp.mode;t.bp_lc=1;};`+
   `t.bp_lc?{v.bp.layer<-1?{v.bp.layer=${H}-(v.bp.mode==0?1:2);};v.bp.layer>=(v.bp.mode==0?${H}:${H}-1)?{v.bp.layer=-1;};};`+
   `t.bp_fire==7?{v.bp.ox=v.bp.ox+1;};t.bp_fire==8?{v.bp.ox=v.bp.ox-1;};t.bp_fire==9?{v.bp.oy=v.bp.oy+1;};t.bp_fire==10?{v.bp.oy=v.bp.oy-1;};`+
@@ -631,21 +679,23 @@ async function make(){
  const holo=$('#om').value!=='s',op0=Math.min(6,Math.max(0,+$('#op').value|0)),mid=$('#og').value==='m',cx=mid?Math.floor(sx/2):0,cz=mid?Math.floor(sz/2):0;
  const G=geo({cx,cz}),VW=2*(Math.ceil(Math.hypot(sx,sz))+4),VH=sy+4;
  if(!G.length)throw new Error('沒有可顯示的方塊（只有被略過的小裝飾？）');
+ // 可調透明度：貼圖另存成 7 種不透明度；下載不到的貼圖退回舊做法（只靠顏色透明度）
+ const bake=holo&&$('#bk').checked,BK=bake?await bakeTex(G,s=>{$('#msg').textContent=s}):new Map(),bkOk=g=>{const b=BK.get(g.p+'|'+(g.t||0));return b&&b.ok?b:null};
  // 動畫貼圖（水、岩漿、海燈籠…）是很多格直向疊起來，宣告實際高度才只會顯示第一格
- const ts=new Map();if(FL)for(const g of G)if(FL.has(g.p)&&!ts.has(g.p))ts.set(g.p,await texSize(g.p));
+ const ts=new Map();if(FL)for(const g of G)if(FL.has(g.p)&&!ts.has(g.p)&&!bkOk(g))ts.set(g.p,await texSize(g.p));
  const r4=v=>+v.toFixed(4),WB=[{name:'bp_world',pivot:[0,0,0]},{name:'bp_offset',parent:'bp_world',pivot:[0,0,0]},{name:'bp_align',parent:'bp_offset',pivot:[0,0,0]}];
  // 每個幾何：3 根對齊用的外層骨骼（bp_world→bp_offset→bp_align），底下每層一根骨骼，骨骼內是 poly_mesh 四邊形
- const gj=J({format_version:'1.16.0','minecraft:geometry':G.map((g,i)=>{const s=ts.get(g.p),th=s?Math.max(16,Math.round(16*s[1]/s[0])):16;
+ const gj=J({format_version:'1.16.0','minecraft:geometry':G.map((g,i)=>{const s=bkOk(g)?null:ts.get(g.p),th=s?Math.max(16,Math.round(16*s[1]/s[0])):16;
   return{description:{identifier:'geometry.bp'+i,texture_width:16,texture_height:th,visible_bounds_width:VW,visible_bounds_height:VH,visible_bounds_offset:[0,sy/2,0]},
    bones:[...WB,...[...g.L].map(([y,m])=>({name:'l'+y,parent:'bp_align',pivot:[0,0,0],poly_mesh:{normalized_uvs:true,positions:m.pos,normals:NRM,uvs:m.uv.map(([u,v])=>[r4(u/16),r4(1-v/th)]),polys:m.polys}}))]}})});
  const tex={default:'textures/entity/armor_stand'},geom={default:'geometry.armor_stand'},rc={},names=['controller.render.armor_stand'];
- const TC={g:{r:.48,g:.74,b:.42},l:{r:.36,g:.65,b:.22}},Z0={r:0,g:0,b:0,a:0};
- G.forEach((g,i)=>{tex['t'+i]=g.p;geom['g'+i]='geometry.bp'+i;const n='controller.render.bp'+i;names.push({[n]:'v.bp.on&&!q.is_in_ui'});
+ const Z0={r:0,g:0,b:0,a:0},OPK=[0,1,2,3,4,5,6];
+ G.forEach((g,i)=>{const bo=bkOk(g);if(bo)for(const k of OPK)tex['b'+bo.id+'_'+k]='textures/blueprint/o/'+bo.id+'_'+k;else tex['t'+i]=g.p;geom['g'+i]='geometry.bp'+i;const n='controller.render.bp'+i;names.push({[n]:'v.bp.on&&!q.is_in_ui'});
   // 層可見：沒有用命名牌指定層(variable.bp_all)時，依 HUD 的「圖層／模式」；用命名牌 L<n> 時只顯示那一層
   const vis=y=>`(variable.bp_all&&(v.bp.layer<0||(v.bp.mode==0?v.bp.layer==${y}:v.bp.layer>=${y})))||q.get_name=='L${y+1}'`;
-  rc[n]={geometry:'Geometry.g'+i,materials:[{'*':'Material.bp'}],textures:['Texture.t'+i],
+  rc[n]={...(bo?{arrays:{textures:{['Array.o'+i]:OPK.map(k=>'Texture.b'+bo.id+'_'+k)}}}:{}),geometry:'Geometry.g'+i,materials:[{'*':'Material.bp'}],textures:[bo?`Array.o${i}[v.bp.op]`:'Texture.t'+i],
    part_visibility:[{'*':false},{bp_world:true},{bp_offset:true},{bp_align:true},...[...g.L.keys()].map(y=>({['l'+y]:vis(y)}))],
-   color:{...(g.t?TC[g.t]:{r:1,g:1,b:1}),a:holo?'0.4+0.1*v.bp.op':1},is_hurt_color:Z0,on_fire_color:Z0,ignore_lighting:true}});
+   color:bo?{r:1,g:1,b:1,a:1}:{...(g.t?TC[g.t]:{r:1,g:1,b:1}),a:holo?'0.4+0.1*v.bp.op':1},is_hurt_color:Z0,on_fire_color:Z0,ignore_lighting:true}});
  const S=entityScripts(sy,op0);
  const ent={format_version:'1.10.0','minecraft:client_entity':{description:{identifier:'minecraft:armor_stand',min_engine_version:'1.8.0',
   materials:{default:'armor_stand',bp:holo?'bp_holo':'bp_solid'},textures:tex,
@@ -664,7 +714,7 @@ async function make(){
  // ---------- HUD ----------
  const num=(id,d,lo,hi)=>{const v=parseFloat($('#'+id).value);return Math.min(hi,Math.max(lo,isFinite(v)?v:d))};
  const BW=Math.round(num('bw',72,36,160)),BH=Math.round(BW*20/72),BX=num('bx',36,0,500),BY=num('by',4,0,300),RT=$('#bs').value!=='l',AN=RT?'top_right':'top_left',sg=RT?-1:1;
- try{$('#bx').value=BX;$('#by').value=BY;$('#bw').value=BW;localStorage.setItem('bpbtn',J({bs:$('#bs').value,bx:BX,by:BY,bw:BW,om:$('#om').value,op:op0,og:$('#og').value,cpos:$('#cpos').value}))}catch(e){}
+ try{$('#bx').value=BX;$('#by').value=BY;$('#bw').value=BW;localStorage.setItem('bpbtn',J({bs:$('#bs').value,bx:BX,by:BY,bw:BW,om:$('#om').value,op:op0,og:$('#og').value,cpos:$('#cpos').value,bk:$('#bk').checked?1:0}))}catch(e){}
  const U={namespace:'bp'};
  // 隱形盔甲座（按下按鈕時才出現），手持物品 = 動作
  U.stand={type:'custom',renderer:'equipment_preview_renderer',size:[0,0]};
@@ -697,7 +747,7 @@ async function make(){
    {pressed:{type:'image',texture:'textures/ui/button_borderless_lightpressednohover',size:['100%','100%'],layer:1,controls:[{'content@bp.stand_item':{}}]}}]};
  const BTW=26,BTH=22,GAP=3,pad=i=>({['g'+i]:{type:'panel',size:[GAP,0]}});
  const row=bs=>({type:'stack_panel',orientation:'horizontal',size:[bs.length*BTW+(bs.length-1)*GAP,BTH],controls:bs.flatMap(([id,l],i)=>[...(i?[pad(i)]:[]),{['b'+i+'@bp.ctl_btn']:{size:[BTW,BTH],'$label':l,'$armor_stand_item_id':id}}])});
- const r1=[[AID.toggle,'顯示'],[AID.layDn,'層-'],[AID.layUp,'層+'],[AID.mode,'模式'],...(holo?[[AID.opDn,'透-'],[AID.opUp,'透+']]:[])],
+ const r1=[[AID.toggle,'顯示'],[AID.layDn,'層-'],[AID.layUp,'層+'],[AID.mode,'模式'],...(holo?[[AID.opDn,'變淡'],[AID.opUp,'變濃']]:[])],
   r2=[[AID.east,'東'],[AID.west,'西'],[AID.south,'南'],[AID.north,'北'],[AID.up,'上'],[AID.down,'下'],[AID.reset,'重置']];
  const CW=7*BTW+6*GAP,CH=2*BTH+GAP;
  U.ctl_content={type:'panel',controls:[{'background@common.dialog_background_opaque':{size:[CW+12,CH+12]}},
@@ -730,8 +780,9 @@ async function make(){
   {n:'pack_icon.png',d:await png(256,256,drawIcon)},
   {n:'textures/blueprint/btn.png',d:b64u8(BTN)},{n:'textures/blueprint/btn_on.png',d:b64u8(BTN_ON)},
   {n:'textures/blueprint/missing.png',d:await png(16,16,g=>{g.fillStyle='#000';g.fillRect(0,0,16,16);g.fillStyle='#f800f8';g.fillRect(8,0,8,8);g.fillRect(0,8,8,8)})}];
- const blob=await zip(files);LAST={blob,name};const nf=G.reduce((a,g)=>a+g.nf,0);
- return`完成：${G.length} 組幾何、${nf} 個面、${(blob.size/1048576).toFixed(2)} MB`+(B.bad?`（${B.bad} 個方塊找不到貼圖）`:'')+(nf>150000?'；面數很多，遊戲可能會變卡，建議分成較小的藍圖':'')+'，請按下方按鈕儲存'}
+ for(const b of BK.values())if(b.ok)b.files.forEach((d,k)=>files.push({n:'textures/blueprint/o/'+b.id+'_'+k+'.png',d}));
+ const blob=await zip(files);LAST={blob,name};const nf=G.reduce((a,g)=>a+g.nf,0),nb=[...BK.values()].filter(b=>b.ok).length,nbad=BK.size-nb;
+ return`完成：${G.length} 組幾何、${nf} 個面、${(blob.size/1048576).toFixed(2)} MB`+(B.bad?`（${B.bad} 個方塊找不到貼圖）`:'')+(nb?`；已內建 ${nb} 種貼圖的 7 級透明度`:'')+(nbad?`；有 ${nbad} 種貼圖沒下載到（可能沒連上網路），這些方塊在遊戲內可能無法調整透明度，連上網路後再產生一次即可`:'')+(nf>150000?'；面數很多，遊戲可能會變卡，建議分成較小的藍圖':'')+'，請按下方按鈕儲存'}
 let LAST=null;
 async function save(ext,w){const{blob,name}=w===2?LAST2:LAST,fn=name+'.'+ext;
  for(const t of['application/zip','application/octet-stream']){const file=new File([blob],fn,{type:t});
@@ -926,7 +977,8 @@ $('#ir').onclick=()=>{ICON=null;showIcon()};
 try{$('#au').value=localStorage.getItem('bpau')||''}catch(e){}
 $('#au').oninput=()=>{try{localStorage.setItem('bpau',$('#au').value)}catch(e){}};
 showIcon();
-try{const o=JSON.parse(localStorage.getItem('bpbtn')||'null');if(o)for(const k of['bs','bx','by','bw','om','op','og','cpos'])if(o[k]!==undefined&&o[k]!==null)$('#'+k).value=o[k]}catch(e){}
+try{const o=JSON.parse(localStorage.getItem('bpbtn')||'null');if(o){for(const k of['bs','bx','by','bw','om','op','og','cpos'])if(o[k]!==undefined&&o[k]!==null)$('#'+k).value=o[k];if(o.bk!==undefined&&o.bk!==null)$('#bk').checked=!!+o.bk}}catch(e){}
+const syncBk=()=>{$('#bk').disabled=$('#om').value==='s'};$('#om').onchange=syncBk;syncBk();
 loadEX().then(ok=>{$('#exs').textContent=ok?`已核對官方貼圖清單（${EX.size} 張），找不到的貼圖會自動改試備用名稱`:'目前連不上官方貼圖清單，無法核對貼圖名稱（仍會使用內建對照）';if(CELLS){BP=prep(xf(CELLS));show()}});
 </script>
 </body>
