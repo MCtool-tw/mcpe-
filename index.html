@@ -113,7 +113,7 @@ button.gh:disabled{cursor:default}
    <button id="sv2">儲存／分享 創造放置包</button>
    <button id="sz2" style="background:var(--cy)">另存為 .zip（存檔後改副檔名為 .mcpack）</button>
   </div>
-  <p class="sub"><b>自動放置</b>：同一個行為包也內含自動放置。在生存或創造模式、開啟後，玩家<b>半徑 3 格內</b>的藍圖方塊會自動放上去，並從背包扣掉對應建材（背包沒有就不放，動作列會提示缺什麼）。只會放在空氣／液體處，不會覆蓋原有方塊；全程不使用指令，聊天室不會出現「已在座標放置方塊」的提示。創造模式不需要背包有方塊、也不會消耗。開關：資源包 [控制] 面板最下面的 <code>[自動放置：開／關]</code> 按鈕（預設關）；按鈕沒反應時，可以潛行＋空手對盔甲座按右鍵，或用指令 <code>/scriptevent bp:auto</code>（或加 <code>on</code>／<code>off</code>）。這兩種備用開關不會更新按鈕上的字，以遊戲畫面下方動作列的提示為準。</p>
+  <p class="sub"><b>自動放置</b>：同一個行為包也內含自動放置。在生存或創造模式、開啟後，玩家<b>半徑 3 格內</b>的藍圖方塊會自動放上去，並從背包扣掉對應建材（背包沒有就不放，動作列會提示缺什麼）。只會放在空氣／液體處，不會覆蓋原有方塊；全程不使用指令，聊天室不會出現「已在座標放置方塊」的提示。創造模式不需要背包有方塊、也不會消耗。預設關閉，開關方式（擇一）：①手持<b>時鐘</b>使用（電腦右鍵／手機點住）；②潛行＋空手對盔甲座按右鍵；③指令 <code>/scriptevent bp:auto</code>（可加 <code>on</code>／<code>off</code>）。開關後畫面下方動作列會顯示「藍圖自動放置：開／關」。資源包的 [控制] 面板是純畫面功能，無法通知行為包，所以沒有放這個開關。</p>
   <p class="hint">需要較新的基岩版（腳本 API 2.1.0 以上）。箱子內容、告示牌文字、旗幟與床的顏色等「方塊實體資料」不會複製；水／岩漿與空氣不會放。找不到對應基岩版方塊的會略過，並在聊天室列出名稱。</p>
  </details>
 </div>
@@ -128,7 +128,7 @@ button.gh:disabled{cursor:default}
 <li>基岩版沒有的方塊會顯示錯誤紋理（洋紅黑格）。預設紋理直接引用遊戲內建資源，不內含任何官方素材；若勾選「遊戲內可調透明度」，資源包會內含從官方範例庫下載、調整過透明度的貼圖副本（只供個人使用，請勿轉發或販售）。</li>
 <li>盔甲座沒放正（轉了角度）或站在半磚上，藍圖會自動對齊最近的 90° 方向與整數高度。</li>
 <li>創造放置：另外下載「創造放置包」（行為包）並啟用。創造模式且有指令權限的玩家，把指令方塊放進盔甲座手上，就會在藍圖位置生成建築；要在盔甲座旁放藍圖資源包預覽時，兩個包可同時啟用。</li>
-<li>自動放置：啟用「創造放置包」後，用 [控制] 面板的 <code>[自動放置：開／關]</code> 按鈕（或 <code>/scriptevent bp:auto</code>）開關。開啟後，半徑 3 格內的藍圖方塊會自動放置；生存模式扣背包建材，創造模式不消耗。放置依盔甲座的位置、朝向與命名牌 <code>L&lt;n&gt;</code> 計算；[控制] 面板裡的圖層、模式、位置微調只改畫面，不會影響自動放置。</li>
+<li>自動放置：啟用「創造放置包」後，手持時鐘使用（或潛行＋空手點盔甲座、或 <code>/scriptevent bp:auto</code>）開關。開啟後，半徑 3 格內的藍圖方塊會自動放置；生存模式扣背包建材，創造模式不消耗。放置依盔甲座的位置、朝向與命名牌 <code>L&lt;n&gt;</code> 計算；[控制] 面板裡的圖層、模式、位置微調只改畫面，不會影響自動放置。</li>
 <li>控制與版面做法參考 HoloPrint（SuperLlama88888，CC BY-NC-SA 4.0）。</li>
 <li>匯入後可旋轉／鏡像藍圖；點預覽圖可查方塊名稱；洋紅黑格可在「自訂紋理對照」填入基岩版貼圖路徑修正。</li>
 </ol></div>
@@ -303,7 +303,7 @@ world.afterEvents.playerInteractWithEntity.subscribe(ev => {
   const stand = ev.target, p = ev.player;
   let tid; try { tid = stand.typeId; } catch (e) { return; }
   if (tid !== STAND) return;
-  // 備用開關：潛行＋空手對盔甲座按右鍵，切換自動放置
+  // 開關之一：潛行＋空手對盔甲座按右鍵，切換自動放置
   try { if (p.isSneaking && !ev.itemStack && !ev.beforeItemStack) { setAuto(p, !isAuto(p)); return; } } catch (e) { }
   const held = (ev.beforeItemStack && ev.beforeItemStack.typeId) || (ev.itemStack && ev.itemStack.typeId) || '';
   if (!CMD.has(held)) return;
@@ -442,22 +442,18 @@ function autoTick(p) {
 system.runInterval(() => { for (const p of world.getAllPlayers()) { try { autoTick(p); } catch (e) { } } }, AUTO_EVERY);
 
 // ---------- 開關 ----------
-// 1) 資源包 [控制] 面板的 [自動] 按鈕：按下時同時送出「跳躍＋潛行」，腳本偵測到兩者在同一瞬間按下就切換開關。
-const chord = new Map(), chordCool = new Map();
+// 1) 手持時鐘（minecraft:clock）使用（電腦右鍵／手機點住）：切換開關。任何時候都能用，不需要靠近盔甲座。
+const useCool = new Map();
 try {
-  const bi = world.afterEvents.playerButtonInput;
-  if (bi) bi.subscribe(ev => {
-    if (String(ev.newButtonState).toLowerCase() !== 'pressed') return;
-    const b = String(ev.button).toLowerCase(), p = ev.player, t = system.currentTick;
-    if (b !== 'jump' && b !== 'sneak') return;
-    const c = chord.get(p.id) || {}; c[b] = t; chord.set(p.id, c);
-    if (c.jump !== undefined && c.sneak !== undefined && Math.abs(c.jump - c.sneak) <= 4 && t - (chordCool.get(p.id) || -999) > 10) {
-      chordCool.set(p.id, t); chord.delete(p.id);
-      setAuto(p, !isAuto(p));
-    }
+  world.afterEvents.itemUse.subscribe(ev => {
+    if (!ev.itemStack || ev.itemStack.typeId !== 'minecraft:clock') return;
+    const p = ev.source, t = system.currentTick;
+    if (!p || p.typeId !== 'minecraft:player' || t - (useCool.get(p.id) || -999) < 10) return;
+    useCool.set(p.id, t);
+    setAuto(p, !isAuto(p));
   });
 } catch (e) { }
-// 2) 指令（按鈕沒反應時的備用）：/scriptevent bp:auto　或　/scriptevent bp:auto on　／　off
+// 2) 指令（備用）：/scriptevent bp:auto　或　/scriptevent bp:auto on　／　off
 try {
   system.afterEvents.scriptEventReceive.subscribe(ev => {
     if (ev.id !== 'bp:auto') return;
@@ -466,7 +462,7 @@ try {
     setAuto(p, m === 'on' ? true : m === 'off' ? false : !isAuto(p));
   });
 } catch (e) { }
-try { world.afterEvents.playerLeave.subscribe(ev => { autoOn.delete(ev.playerId); chord.delete(ev.playerId); chordCool.delete(ev.playerId); lackAt.delete(ev.playerId); }); } catch (e) { }
+try { world.afterEvents.playerLeave.subscribe(ev => { autoOn.delete(ev.playerId); useCool.delete(ev.playerId); lackAt.delete(ev.playerId); }); } catch (e) { }
 </script>
 
 <script>
@@ -905,19 +901,9 @@ async function make(){
  const row=bs=>({type:'stack_panel',orientation:'horizontal',size:[bs.length*BTW+(bs.length-1)*GAP,BTH],controls:bs.flatMap(([id,l],i)=>[...(i?[pad(i)]:[]),{['b'+i+'@bp.ctl_btn']:{size:[BTW,BTH],'$label':l,'$armor_stand_item_id':id}}])});
  const r1=[[AID.toggle,'顯示'],[AID.layDn,'層-'],[AID.layUp,'層+'],[AID.mode,'模式'],...(holo?[[AID.opDn,'變淡'],[AID.opUp,'變濃']]:[])],
   r2=[[AID.east,'東'],[AID.west,'西'],[AID.south,'南'],[AID.north,'北'],[AID.up,'上'],[AID.down,'下'],[AID.reset,'重置']];
- const CW=7*BTW+6*GAP,CH=3*BTH+2*GAP;
- // [自動放置：開／關] 切換鈕：沿用 [藍圖]／[控制] 的切換鈕做法，按鈕上的字依開關顯示「開」或「關」（預設關，與行為包每次進世界預設關閉一致）。
- // 按下時除了切換顯示，也同時送出「跳躍＋潛行」給行為包（行為包偵測到兩者同時按下就切換自動放置）。
- const bindT=(n,st)=>({binding_type:'view',source_control_name:n,source_property_name:st,target_property_name:'#visible'});
- U.lbl_auto={type:'panel',controls:[{on:{...lab('§a自動放置：開'),bindings:[bindT('bp_auto_toggle','#toggle_state')]}},{off:{...lab('§f自動放置：關'),bindings:[bindT('bp_auto_toggle','(not #toggle_state)')]}}]};
- U.auto_toggle={type:'input_panel',layer:33,prevent_touch_input:true,controls:[{'toggle@bp.tgl':{alpha:0.95,propagate_alpha:true,
-  '$default_texture':'textures/blueprint/btn','$hover_texture':'textures/blueprint/btn_on','$pressed_texture':'textures/blueprint/btn','$pressed_no_hover_texture':'textures/blueprint/btn_on',
-  '$toggle_view_binding_name':'bp_auto_toggle','$button_content':'bp.lbl_auto','$button_content_size':['100% - 4px','100% - 4px'],
-  button_mappings:[{from_button_id:'button.menu_select',to_button_id:'button.menu_select',mapping_type:'pressed',consume_event:false},
-   {from_button_id:'button.menu_select',to_button_id:'button.jump',mapping_type:'pressed',consume_event:false},
-   {from_button_id:'button.menu_select',to_button_id:'button.sneak',mapping_type:'pressed',consume_event:false}]}}]};
+ const CW=7*BTW+6*GAP,CH=2*BTH+GAP;
  U.ctl_content={type:'panel',controls:[{'background@common.dialog_background_opaque':{size:[CW+12,CH+12]}},
-  {rows:{type:'stack_panel',orientation:'vertical',size:[CW,CH],layer:1,controls:[{r1:row(r1)},{gap:{type:'panel',size:[0,GAP]}},{r2:row(r2)},{gap2:{type:'panel',size:[0,GAP]}},{r3:{type:'panel',size:[CW,BTH],controls:[{'auto@bp.auto_toggle':{size:[CW,BTH]}}]}}]}}]};
+  {rows:{type:'stack_panel',orientation:'vertical',size:[CW,CH],layer:1,controls:[{r1:row(r1)},{gap:{type:'panel',size:[0,GAP]}},{r2:row(r2)}]}}]};
  const CL=$('#cpos').value==='l',cx_=CL?BX+BW+4:BX,cy_=CL?BY:BY+BH+2,py_=CL?BY+BH+10:BY+2*BH+8;
  const tb=(id,vn,content,ox,oy)=>({[id+'@bp.hud_toggle']:{size:[BW,BH],anchor_from:AN,anchor_to:AN,offset:[sg*ox,oy],'$toggle_view_binding_name':vn,'$button_content':content,'$button_content_size':['100% - 4px','100% - 4px']}});
  const bindTg=n=>({binding_type:'view',source_control_name:n,source_property_name:'#toggle_state',target_property_name:'#visible'});
