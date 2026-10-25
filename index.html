@@ -560,14 +560,19 @@ function geo(opt){const{sx,sy,sz,grid,recs}=BP,G=new Map(),parts=[],cx=opt&&opt.
   const r=recs[ri],bx=r.b||cboxes(r,x,y,z);
   for(const b of bx){const E=b.slice(),fs=[];
    for(const d of FD){const[nm,dx,dy,dz]=d,on=dx>0?b[3]===16:dx<0?b[0]===0:dy>0?b[4]===16:dy<0?b[1]===0:dz>0?b[5]===16:b[2]===0,q=on?at(x+dx,y+dy,z+dz):null;
-    if(q&&(q.op||(q.sc&&r.sc&&q.n===r.n)||(!r.b&&q.k===r.k)))continue; // 被不透明方塊（或相鄰同種玻璃）蓋住的面不畫，方塊在該側貼齊邊界避免縫隙
+    let cond=null;
+    if(q&&(q.op||(q.sc&&r.sc&&q.n===r.n)||(!r.b&&q.k===r.k))){ // 被不透明方塊（或相鄰同種玻璃）蓋住的面不畫，方塊在該側貼齊邊界避免縫隙
+     if(!dy)continue;
+     cond=dy>0?'u':'d'; // 但上／下被「別層」蓋住的面，要在那一層被隱藏（分層顯示）時補上，所以另外收進條件骨骼
+     fs.push([nm,dx,dy,dz,cond]);continue}
     // 暴露的面往內縮一點點，真方塊蓋上去時才不會和藍圖閃爍（z-fighting）
     if(dx>0&&b[3]-b[0]>1)E[3]-=INS;else if(dx<0&&b[3]-b[0]>1)E[0]+=INS;else if(dy>0&&b[4]-b[1]>1)E[4]-=INS;else if(dy<0&&b[4]-b[1]>1)E[1]+=INS;else if(dz>0&&b[5]-b[2]>1)E[5]-=INS;else if(dz<0&&b[5]-b[2]>1)E[2]+=INS;
     fs.push(d)}
    if(!fs.length)continue;
    // 每個面：頂點依「從外面看」的 左上→右上→右下→左下 排列；UV 是貼圖上 16×16 內的像素範圍（v 由上往下）
-   for(const[nm,dx,dy,dz]of fs){
-    const e=E,c=r.ax==='x'?(dx?0:2):r.ax==='z'?(dz?0:2):(dy>0?0:dy<0?1:2);let V,u0,u1,v0,v1;
+   for(const[nm,dx,dy,dz,cond]of fs){
+    const e=cond?E.slice():E,c=r.ax==='x'?(dx?0:2):r.ax==='z'?(dz?0:2):(dy>0?0:dy<0?1:2);let V,u0,u1,v0,v1;
+    if(cond==='u'&&b[4]-b[1]>1)e[4]-=INS;else if(cond==='d'&&b[4]-b[1]>1)e[1]+=INS;
     if(nm==='up'){V=[[e[0],e[4],e[2]],[e[3],e[4],e[2]],[e[3],e[4],e[5]],[e[0],e[4],e[5]]];u0=b[0];u1=b[3];v0=b[2];v1=b[5]}
     else if(nm==='down'){V=[[e[0],e[1],e[5]],[e[3],e[1],e[5]],[e[3],e[1],e[2]],[e[0],e[1],e[2]]];u0=b[0];u1=b[3];v0=16-b[5];v1=16-b[2]}
     else{v0=16-b[4];v1=16-b[1];
@@ -578,7 +583,7 @@ function geo(opt){const{sx,sy,sz,grid,recs}=BP,G=new Map(),parts=[],cx=opt&&opt.
     let UV=[[u0,v0],[u1,v0],[u1,v1],[u0,v1]];
     // 原木等有方向的方塊：側面的木紋要沿著軸向，貼圖轉 90°
     if((r.ax==='x'&&(dy||dz))||(r.ax==='z'&&dx))UV=[UV[3],UV[0],UV[1],UV[2]];
-    const t=r.t[c],m=add(t[0],t[1],y,1),ni=NI[nm];
+    const t=r.t[c],m=add(t[0],t[1],cond?cond+y:y,1),ni=NI[nm];
     m.polys.push(V.map((v,i)=>[pidx(m,null,[n3(16*(x-cx)+v[0]-8),n3(16*y+v[1]),n3(-(16*(z-cz)+v[2]-8))]),ni,uidx(m,n3(UV[i][0]),n3(UV[i][1]))]))}}}
  return parts}
 
@@ -694,7 +699,7 @@ async function make(){
   // 層可見：沒有用命名牌指定層(variable.bp_all)時，依 HUD 的「圖層／模式」；用命名牌 L<n> 時只顯示那一層
   const vis=y=>`(variable.bp_all&&(v.bp.layer<0||(v.bp.mode==0?v.bp.layer==${y}:v.bp.layer>=${y})))||q.get_name=='L${y+1}'`;
   rc[n]={...(bo?{arrays:{textures:{['Array.o'+i]:OPK.map(k=>'Texture.b'+bo.id+'_'+k)}}}:{}),geometry:'Geometry.g'+i,materials:[{'*':'Material.bp'}],textures:[bo?`Array.o${i}[v.bp.op]`:'Texture.t'+i],
-   part_visibility:[{'*':false},{bp_world:true},{bp_offset:true},{bp_align:true},...[...g.L.keys()].map(y=>({['l'+y]:vis(y)}))],
+   part_visibility:[{'*':false},{bp_world:true},{bp_offset:true},{bp_align:true},...[...g.L.keys()].map(k=>({['l'+k]:typeof k==='number'?vis(k):k[0]==='u'?`(${vis(+k.slice(1))})&&!(${vis(+k.slice(1)+1)})`:`(${vis(+k.slice(1))})&&!(${vis(+k.slice(1)-1)})`}))],
    color:bo?{r:1,g:1,b:1,a:1}:{...(g.t?TC[g.t]:{r:1,g:1,b:1}),a:holo?'0.4+0.1*v.bp.op':1},is_hurt_color:Z0,on_fire_color:Z0,ignore_lighting:true}});
  const S=entityScripts(sy,op0);
  const ent={format_version:'1.10.0','minecraft:client_entity':{description:{identifier:'minecraft:armor_stand',min_engine_version:'1.8.0',
@@ -781,7 +786,7 @@ async function make(){
   {n:'textures/blueprint/btn.png',d:b64u8(BTN)},{n:'textures/blueprint/btn_on.png',d:b64u8(BTN_ON)},
   {n:'textures/blueprint/missing.png',d:await png(16,16,g=>{g.fillStyle='#000';g.fillRect(0,0,16,16);g.fillStyle='#f800f8';g.fillRect(8,0,8,8);g.fillRect(0,8,8,8)})}];
  for(const b of BK.values())if(b.ok)b.files.forEach((d,k)=>files.push({n:'textures/blueprint/o/'+b.id+'_'+k+'.png',d}));
- const blob=await zip(files);LAST={blob,name};const nf=G.reduce((a,g)=>a+g.nf,0),nb=[...BK.values()].filter(b=>b.ok).length,nbad=BK.size-nb;
+ const blob=await zip(files);LAST={blob,name};const nf=G.reduce((a,g)=>a+[...g.L].reduce((b,[k,m])=>b+(typeof k==='number'?m.polys.length:0),0),0),nb=[...BK.values()].filter(b=>b.ok).length,nbad=BK.size-nb;
  return`完成：${G.length} 組幾何、${nf} 個面、${(blob.size/1048576).toFixed(2)} MB`+(B.bad?`（${B.bad} 個方塊找不到貼圖）`:'')+(nb?`；已內建 ${nb} 種貼圖的 7 級透明度`:'')+(nbad?`；有 ${nbad} 種貼圖沒下載到（可能沒連上網路），這些方塊在遊戲內可能無法調整透明度，連上網路後再產生一次即可`:'')+(nf>150000?'；面數很多，遊戲可能會變卡，建議分成較小的藍圖':'')+'，請按下方按鈕儲存'}
 let LAST=null;
 async function save(ext,w){const{blob,name}=w===2?LAST2:LAST,fn=name+'.'+ext;
